@@ -28,6 +28,33 @@ FIVE_ELEVEN_API_KEY = "b43cedb9-b614-4739-bb3a-e3c07f895fab"  # 511 API key
 # URL for 511 MTC GTFS DataFeed Download API (for a specific operator_id)
 GTFS_DATA_URL_TEMPLATE = "http://api.511.org/transit/datafeeds?api_key={api_key}&operator_id={operator_id}"
 
+def parse_gtfs_time(time_str: str) -> Optional[time]:
+    """
+    Parse GTFS time format which can include times like 24:00:00, 25:30:00, etc.
+    These represent times after midnight (next day).
+    For simplicity, we'll convert times >= 24:00:00 to their equivalent within 24-hour format.
+    """
+    if not time_str:
+        return None
+    
+    try:
+        # Split the time string
+        parts = time_str.split(':')
+        if len(parts) != 3:
+            return None
+            
+        hours = int(parts[0])
+        minutes = int(parts[1])
+        seconds = int(parts[2])
+        
+        # Handle times >= 24:00:00 by converting to next day equivalent
+        if hours >= 24:
+            hours = hours % 24
+        
+        return time(hours, minutes, seconds)
+    except (ValueError, TypeError):
+        return None
+
 # --- Data Parsing and Loading Functions ---
 
 async def _load_csv_to_db(
@@ -75,14 +102,8 @@ async def _load_csv_to_db(
 
                 if model_class == GTFSStopTime:
                     cleaned_row['stop_sequence'] = int(cleaned_row['stop_sequence']) if cleaned_row.get('stop_sequence') else None
-                    cleaned_row['arrival_time'] = (
-                        datetime.strptime(cleaned_row['arrival_time'], '%H:%M:%S').time()
-                        if cleaned_row.get('arrival_time') else None
-                    )
-                    cleaned_row['departure_time'] = (
-                        datetime.strptime(cleaned_row['departure_time'], '%H:%M:%S').time()
-                        if cleaned_row.get('departure_time') else None
-                    )
+                    cleaned_row['arrival_time'] = parse_gtfs_time(cleaned_row.get('arrival_time'))
+                    cleaned_row['departure_time'] = parse_gtfs_time(cleaned_row.get('departure_time'))
                     cleaned_row['pickup_type'] = int(cleaned_row['pickup_type']) if cleaned_row.get('pickup_type') else None
                     cleaned_row['drop_off_type'] = int(cleaned_row['drop_off_type']) if cleaned_row.get('drop_off_type') else None
                     cleaned_row['shape_dist_traveled'] = float(cleaned_row['shape_dist_traveled']) if cleaned_row.get('shape_dist_traveled') else None

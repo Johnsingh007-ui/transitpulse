@@ -73,8 +73,18 @@ async def websocket_endpoint(websocket: WebSocket, route_id: str):
 async def startup_event():
     from app.api.endpoints.gtfs import simulate_vehicle_updates
     from app.websocket.manager import manager
-    # Start the vehicle simulation
+    from data_ingestion.auto_gtfs_updater import auto_updater
+    
+    # Start the vehicle simulation (for demo routes without real data)
     asyncio.create_task(simulate_vehicle_updates(manager))
+    
+    # Start automated GTFS data updates
+    asyncio.create_task(auto_updater.start_realtime_updates(["golden_gate"]))
+    
+    # Trigger initial static data update if needed
+    asyncio.create_task(auto_updater.update_static_data("golden_gate"))
+    
+    print("🚀 Started automated GTFS updates and real-time vehicle tracking", file=sys.stderr)
 
 @app.get("/")
 async def root():

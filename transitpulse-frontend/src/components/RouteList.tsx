@@ -12,12 +12,18 @@ import {
   HStack,
   VStack,
   Flex,
-  Icon
+  Icon,
+  Button
 } from '@chakra-ui/react';
-import { FaBus, FaLink } from 'react-icons/fa';
+import { FaBus, FaLink, FaMapMarkerAlt } from 'react-icons/fa';
 import RouteDetailsModal from './RouteDetailsModal';
 
-const RouteList: React.FC = () => {
+interface RouteListProps {
+  onRouteSelect?: (routeId: string | null) => void;
+  selectedRouteId?: string | null;
+}
+
+const RouteList: React.FC<RouteListProps> = ({ onRouteSelect, selectedRouteId }) => {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +90,7 @@ const RouteList: React.FC = () => {
     }
   };
 
-  const formatRouteColor = (color: string | null): string => {
+  const formatRouteColor = (color: string | null | undefined): string => {
     if (!color || color.length !== 6) return '#3182CE'; // Default blue
     return `#${color}`;
   };
@@ -104,69 +110,97 @@ const RouteList: React.FC = () => {
         </Text>
       </Box>
       <List spacing={3}>
-        {routes.map((route) => (
-          <ListItem 
-            key={route.route_id}
-            p={0}
-            borderRadius="lg"
-            _hover={{ transform: 'translateY(-2px)', shadow: 'lg', cursor: 'pointer' }}
-            transition="all 0.2s"
-            onClick={() => handleRouteClick(route)}
-          >
-            <Box
-              p={4}
-              borderWidth="1px"
+        {routes.map((route) => {
+          const isSelected = selectedRouteId === route.route_id;
+          
+          return (
+            <ListItem 
+              key={route.route_id}
+              p={0}
               borderRadius="lg"
-              borderColor={borderColor}
-              bg={bgColor}
-              borderLeftWidth="4px"
-              borderLeftColor={formatRouteColor(route.route_color)}
+              _hover={{ transform: 'translateY(-2px)', shadow: 'lg', cursor: 'pointer' }}
+              transition="all 0.2s"
+              bg={isSelected ? 'blue.50' : 'transparent'}
+              borderWidth={isSelected ? '2px' : '1px'}
+              borderColor={isSelected ? 'blue.400' : 'transparent'}
             >
-              <Flex justify="space-between" align="start">
-                <VStack align="start" spacing={2} flex={1}>
-                  <HStack spacing={3}>
-                    <Box
-                      bg={formatRouteColor(route.route_color)}
-                      color={route.route_text_color === 'FFFFFF' ? 'white' : 'black'}
-                      px={3}
-                      py={1}
-                      borderRadius="md"
-                      fontWeight="bold"
-                      fontSize="lg"
-                      minW="60px"
-                      textAlign="center"
-                    >
-                      {route.route_short_name || route.route_id}
-                    </Box>
-                    <Badge 
-                      colorScheme="blue" 
-                      variant="subtle"
-                      fontSize="xs"
-                    >
-                      <Icon as={FaBus} mr={1} />
-                      {getRouteTypeLabel(route.route_type)}
-                    </Badge>
-                  </HStack>
-                  
-                  <Text fontWeight="semibold" fontSize="md" color="gray.700">
-                    {route.route_long_name || 'No description available'}
-                  </Text>
-                  
-                  <HStack spacing={4} fontSize="xs" color="gray.500">
-                    <Text>Route ID: {route.route_id}</Text>
-                    <Text>Agency: {route.agency_id}</Text>
-                    {route.route_url && (
-                      <HStack spacing={1}>
-                        <Icon as={FaLink} />
-                        <Text>Schedule Available</Text>
-                      </HStack>
-                    )}
-                  </HStack>
-                </VStack>
-              </Flex>
-            </Box>
-          </ListItem>
-        ))}
+              <Box
+                p={4}
+                borderRadius="lg"
+                borderLeftWidth="4px"
+                borderLeftColor={formatRouteColor(route.route_color)}
+              >
+                <Flex justify="space-between" align="start">
+                  <VStack align="start" spacing={2} flex={1}>
+                    <HStack spacing={3}>
+                      <Box
+                        bg={formatRouteColor(route.route_color)}
+                        color={route.route_text_color === 'FFFFFF' ? 'white' : 'black'}
+                        px={3}
+                        py={1}
+                        borderRadius="md"
+                        fontWeight="bold"
+                        fontSize="lg"
+                        minW="60px"
+                        textAlign="center"
+                      >
+                        {route.route_short_name || route.route_id}
+                      </Box>
+                      <Badge 
+                        colorScheme="blue" 
+                        variant="subtle"
+                        fontSize="xs"
+                      >
+                        <Icon as={FaBus} mr={1} />
+                        {getRouteTypeLabel(route.route_type)}
+                      </Badge>
+                    </HStack>
+                    
+                    <Text fontWeight="semibold" fontSize="md" color="gray.700">
+                      {route.route_long_name || 'No description available'}
+                    </Text>
+                    
+                    <HStack spacing={4} fontSize="xs" color="gray.500">
+                      <Text>Route ID: {route.route_id}</Text>
+                      <Text>Agency: {route.agency_id}</Text>
+                      {route.route_url && (
+                        <HStack spacing={1}>
+                          <Icon as={FaLink} />
+                          <Text>Schedule Available</Text>
+                        </HStack>
+                      )}
+                    </HStack>
+
+                    <HStack spacing={2} mt={2}>
+                      <Button
+                        size="xs"
+                        colorScheme="blue"
+                        variant="outline"
+                        leftIcon={<FaMapMarkerAlt />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRouteSelect?.(isSelected ? null : route.route_id);
+                        }}
+                      >
+                        {isSelected ? 'Hide on Map' : 'Show on Map'}
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRouteClick(route);
+                        }}
+                      >
+                        Details
+                      </Button>
+                    </HStack>
+                  </VStack>
+                </Flex>
+              </Box>
+            </ListItem>
+          );
+        })}
       </List>
       
       {selectedRoute && (

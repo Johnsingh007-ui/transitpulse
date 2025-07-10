@@ -16,6 +16,7 @@ from app.models.gtfs_static import (
 )
 from app.websocket.manager import manager
 from app.schemas.gtfs import GTFSRoute, GTFSRouteResponse, GTFSStop as GTFSStopSchema, GTFSStopResponse
+from data_ingestion.auto_gtfs_updater import auto_updater
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -110,8 +111,8 @@ async def get_stops_by_route(
         
         if not trip_ids:
             return {
-                "status": "success",
-                "message": "No trips found for this route",
+                "status": "success", 
+                "message": f"Route {route_id} exists but has no trips defined",
                 "data": []
             }
         
@@ -139,6 +140,13 @@ async def get_stops_by_route(
             # Only add the stop if it has a valid stop_id
             if stop_dict['stop_id'] is not None:
                 stops.append(stop_dict)
+        
+        if not stops:
+            return {
+                "status": "success",
+                "message": f"Route {route_id} has {len(trip_ids)} trips but no stop schedule data loaded",
+                "data": []
+            }
         
         return {
             "status": "success",
@@ -351,3 +359,108 @@ async def simulate_vehicle_updates(manager):
         except Exception as e:
             print(f"Error in vehicle update simulation: {e}")
             await asyncio.sleep(5)  # Wait before retrying
+
+@router.get("/vehicles/realtime")
+async def get_realtime_vehicles(
+    route_id: Optional[str] = Query(None, description="Filter vehicles by route ID"),
+    agency: str = Query("golden_gate", description="Transit agency")
+):
+    """
+    Get real-time vehicle positions from live feeds.
+    
+    Returns current vehicle positions updated from real transit agency APIs.
+    """
+    try:
+        vehicles = await auto_updater.get_current_vehicles(agency, route_id)
+        
+        return {
+            "status": "success",
+            "message": f"Found {len(vehicles)} active vehicles",
+            "data": vehicles,
+            "last_updated": auto_updater.vehicle_positions.get(agency, {}).get("timestamp"),
+            "agency": agency
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching real-time vehicles: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "status": "error", 
+                "message": f"Failed to fetch vehicle positions: {str(e)}"
+            }
+        )
+
+@router.post("/data/update-static")
+async def trigger_static_update(
+    agency: str = Query("golden_gate", description="Transit agency to update")
+):
+    """
+    Manually trigger a GTFS static data update from the transit agency feed.
+    
+    This will download the latest GTFS data and update the database.
+    """
+    try:
+        logger.info(f"Manual static data update triggered for {agency}")
+        success = await auto_updater.update_static_data(agency)
+        
+        if success:
+            return {
+                "status": "success",
+                "message": f"Successfully updated static data for {agency}",
+                "timestamp": auto_updater.last_static_update.get(agency)
+            }
+        else:
+            return {
+                "status": "error", 
+                "message": f"Failed to update static data for {agency}"
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in manual static update: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "status": "error",
+                "message": f"Update failed: {str(e)}"
+            }
+        )
+
+@router.get("/data/status")
+async def get_data_status():
+    """
+    Get the current status of static and real-time data updates.
+    """
+    try:
+        status = {
+            "static_data": {},
+            "realtime_data": {},
+            "available_agencies": list(auto_updater.gtfs_feeds.keys())
+        }
+        
+        for agency in auto_updater.gtfs_feeds.keys():
+            # Static data status
+            last_static = auto_updater.last_static_update.get(agency)
+            status["static_data"][agency] = {
+                "last_updated": last_static.isoformat() if last_static else None,
+                "name": auto_updater.gtfs_feeds[agency]["name"]
+            }
+            
+            # Real-time data status  
+            realtime_data = auto_updater.vehicle_positions.get(agency, {})
+            status["realtime_data"][agency] = {
+                "last_updated": realtime_data.get("timestamp").isoformat() if realtime_data.get("timestamp") else None,
+                "active_vehicles": len(realtime_data.get("vehicles", []))
+            }
+        
+        return {
+            "status": "success",
+            "data": status
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting data status: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail={"status": "error", "message": str(e)}
+        )

@@ -415,3 +415,85 @@ export const getRouteStops = async (routeId: string): Promise<ApiResponse<Stop[]
     };
   }
 };
+
+/**
+ * Get real-time vehicle positions from live transit feeds
+ */
+export const getRealTimeVehicles = async (routeId?: string, agency: string = 'golden_gate'): Promise<ApiResponse<VehiclePosition[]>> => {
+  try {
+    console.log(`Fetching real-time vehicles${routeId ? ` for route ${routeId}` : ''} from ${agency}`);
+    
+    const params = new URLSearchParams();
+    if (routeId) params.append('route_id', routeId);
+    params.append('agency', agency);
+    
+    const response = await apiClient.get(`/vehicles/realtime?${params.toString()}`);
+    
+    if (response.data.status === 'success') {
+      return {
+        data: response.data.data || [],
+        status: 'success',
+        message: response.data.message
+      };
+    } else {
+      return {
+        data: [],
+        status: 'error',
+        message: response.data.message || 'Failed to fetch real-time vehicles'
+      };
+    }
+  } catch (error) {
+    console.error('Error fetching real-time vehicles:', error);
+    return {
+      data: [],
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
+/**
+ * Trigger manual update of GTFS static data
+ */
+export const triggerStaticDataUpdate = async (agency: string = 'golden_gate'): Promise<ApiResponse<any>> => {
+  try {
+    console.log(`Triggering static data update for ${agency}`);
+    
+    const response = await apiClient.post(`/data/update-static?agency=${agency}`);
+    
+    return {
+      data: response.data,
+      status: response.data.status || 'success',
+      message: response.data.message
+    };
+  } catch (error) {
+    console.error('Error triggering static data update:', error);
+    return {
+      data: {},
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
+/**
+ * Get data update status
+ */
+export const getDataStatus = async (): Promise<ApiResponse<any>> => {
+  try {
+    const response = await apiClient.get('/data/status');
+    
+    return {
+      data: response.data.data || {},
+      status: 'success',
+      message: 'Data status retrieved successfully'
+    };
+  } catch (error) {
+    console.error('Error getting data status:', error);
+    return {
+      data: {},
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
