@@ -48,6 +48,27 @@ export interface VehiclePosition {
   current_stop_sequence?: number;
   current_status?: string;
   updated_at: string;
+  direction_id?: number;
+  direction_name?: string;
+  headsign?: string;
+  agency?: string;
+  status?: number;
+}
+
+export interface Direction {
+  direction_id: number;
+  direction_name: string;
+  headsigns: string[];
+  trip_count: number;
+}
+
+export interface RouteWithDirections {
+  route_id: string;
+  route_short_name: string;
+  route_long_name: string;
+  route_color?: string;
+  route_text_color?: string;
+  directions: Direction[];
 }
 
 export interface Trip {
@@ -101,9 +122,25 @@ interface PaginationParams {
   offset?: number;
 }
 
+// Helper function to create request config
+const createRequestConfig = (options: any = {}): AxiosRequestConfig => {
+  return {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers
+    }
+  };
+};
+
+// Type for custom request config
+interface CustomRequestConfig extends AxiosRequestConfig {
+  _retry?: boolean;
+}
+
 // Add request interceptor to handle auth token
 apiClient.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
+  (config: any) => {
     // Add auth token if available
     const token = localStorage.getItem('token');
     if (token) {
@@ -417,31 +454,75 @@ export const getRouteStops = async (routeId: string): Promise<ApiResponse<Stop[]
 };
 
 /**
- * Get real-time vehicle positions from live transit feeds
+ * Get routes with their direction information
+ */
+export const getRoutesWithDirections = async (routeId?: string): Promise<ApiResponse<RouteWithDirections[]>> => {
+  try {
+    console.log(`Fetching routes with directions${routeId ? ` for route ${routeId}` : ''}`);
+    
+    const params: Record<string, any> = {};
+    if (routeId) {
+      params.route_id = routeId;
+    }
+    
+    const response = await apiClient.get('/routes/directions', { params });
+    
+    return {
+      data: response.data.data || [],
+      status: response.data.status || 'success',
+      message: response.data.message || 'Routes with directions retrieved successfully'
+    };
+  } catch (error) {
+    console.error('Error fetching routes with directions:', error);
+    return {
+      data: [],
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
+/**
+ * Get real-time vehicle positions with direction information
  */
 export const getRealTimeVehicles = async (routeId?: string, agency: string = 'golden_gate'): Promise<ApiResponse<VehiclePosition[]>> => {
   try {
-    console.log(`Fetching real-time vehicles${routeId ? ` for route ${routeId}` : ''} from ${agency}`);
+    console.log(`Fetching real-time vehicles${routeId ? ` for route ${routeId}` : ''}`);
     
-    const params = new URLSearchParams();
-    if (routeId) params.append('route_id', routeId);
-    params.append('agency', agency);
-    
-    const response = await apiClient.get(`/vehicles/realtime?${params.toString()}`);
-    
-    if (response.data.status === 'success') {
-      return {
-        data: response.data.data || [],
-        status: 'success',
-        message: response.data.message
-      };
-    } else {
-      return {
-        data: [],
-        status: 'error',
-        message: response.data.message || 'Failed to fetch real-time vehicles'
-      };
+    const params: Record<string, any> = { agency };
+    if (routeId) {
+      params.route_id = routeId;
     }
+    
+    const response = await apiClient.get('/vehicles/realtime', { params });
+    
+    // Process vehicle positions to ensure correct types
+    const vehicles: VehiclePosition[] = (response.data.data || []).map((v: any) => ({
+      vehicle_id: v.vehicle_id || '',
+      trip_id: v.trip_id || '',
+      route_id: v.route_id || '',
+      latitude: parseFloat(v.latitude) || 0,
+      longitude: parseFloat(v.longitude) || 0,
+      bearing: v.bearing ? parseFloat(v.bearing) : 0,
+      speed: v.speed ? parseFloat(v.speed) : 0,
+      timestamp: typeof v.timestamp === 'string' ? new Date(v.timestamp).getTime() / 1000 : v.timestamp || Math.floor(Date.now() / 1000),
+      vehicle_label: v.vehicle_label || v.vehicle_id || '',
+      occupancy_status: v.occupancy_status || 'UNKNOWN',
+      current_stop_sequence: v.current_stop_sequence || 0,
+      current_status: v.current_status || 'IN_TRANSIT_TO',
+      updated_at: v.updated_at || new Date().toISOString(),
+      direction_id: v.direction_id,
+      direction_name: v.direction_name,
+      headsign: v.headsign,
+      agency: v.agency,
+      status: v.status
+    }));
+    
+    return {
+      data: vehicles,
+      status: response.data.status || 'success',
+      message: response.data.message || 'Real-time vehicles retrieved successfully'
+    };
   } catch (error) {
     console.error('Error fetching real-time vehicles:', error);
     return {
@@ -497,3 +578,5 @@ export const getDataStatus = async (): Promise<ApiResponse<any>> => {
     };
   }
 };
+
+export default apiClient;

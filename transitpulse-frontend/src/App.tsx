@@ -14,6 +14,7 @@ import {
   TabPanel
 } from '@chakra-ui/react';
 import RouteList from './components/RouteList';
+import RouteDirections from './components/RouteDirections';
 import RouteStats from './components/RouteStats';
 import TransitMap from './components/TransitMap';
 
@@ -34,6 +35,7 @@ const App: React.FC = () => {
           <TabList>
             <Tab>🗺️ Live Map</Tab>
             <Tab>📊 Routes & Stats</Tab>
+            <Tab>🧭 Directions</Tab>
           </TabList>
           
           <TabPanels>
@@ -41,7 +43,7 @@ const App: React.FC = () => {
               <Grid templateColumns={{ base: "1fr", lg: "300px 1fr" }} gap={4} h="calc(100vh - 200px)">
                 <GridItem>
                   <Box h="full" overflowY="auto">
-                    <RouteList onRouteSelect={setSelectedRouteId} selectedRouteId={selectedRouteId} />
+                    <RouteDirections onRouteSelect={setSelectedRouteId} selectedRouteId={selectedRouteId} />
                   </Box>
                 </GridItem>
                 <GridItem>
@@ -55,6 +57,10 @@ const App: React.FC = () => {
                 <RouteStats />
                 <RouteList onRouteSelect={setSelectedRouteId} selectedRouteId={selectedRouteId} />
               </VStack>
+            </TabPanel>
+            
+            <TabPanel>
+              <RouteDirections onRouteSelect={setSelectedRouteId} selectedRouteId={selectedRouteId} />
             </TabPanel>
           </TabPanels>
         </Tabs>

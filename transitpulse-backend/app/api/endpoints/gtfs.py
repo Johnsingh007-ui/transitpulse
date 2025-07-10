@@ -241,6 +241,125 @@ async def get_route_details(db: AsyncSession, route_id: str) -> Optional[Dict[st
         logger.error(f"Error getting route details for {route_id}", exc_info=True)
         return None
 
+@router.get("/routes/directions")
+async def get_routes_with_directions(
+    db: AsyncSession = Depends(get_db),
+    route_id: Optional[str] = Query(None, description="Filter by specific route ID")
+):
+    """
+    Get routes with their direction information.
+    Returns routes grouped by direction with headsigns and trip counts.
+    """
+    try:
+        logger.info(f"Getting routes with directions for route_id: {route_id}")
+        
+        # Build WHERE clause for route filtering
+        where_clauses = [GTFSRouteModel.route_type == 3]  # Only bus routes
+        
+        if route_id:
+            # Handle both short IDs (like "101") and full IDs (like "101-265")
+            if route_id.isdigit():
+                # For numeric IDs, find routes that contain this number
+                where_clauses.append(GTFSRouteModel.route_short_name == route_id)
+                logger.info(f"Looking for route with short name: {route_id}")
+            else:
+                # For full IDs, use exact match
+                where_clauses.append(GTFSRouteModel.route_id == route_id)
+                logger.info(f"Looking for route with route_id: {route_id}")
+        
+        # Base query for routes with directions
+        query = select(
+            GTFSRouteModel.route_id,
+            GTFSRouteModel.route_short_name,
+            GTFSRouteModel.route_long_name,
+            GTFSRouteModel.route_color,
+            GTFSRouteModel.route_text_color,
+            GTFSTrip.direction_id,
+            GTFSTrip.trip_headsign
+        ).select_from(
+            GTFSRouteModel
+        ).join(
+            GTFSTrip, GTFSRouteModel.route_id == GTFSTrip.route_id
+        ).where(*where_clauses).distinct()
+        
+        logger.info(f"Executing query: {query}")
+        result = await db.execute(query)
+        rows = result.fetchall()
+        logger.info(f"Found {len(rows)} rows")
+        
+        if not rows:
+            logger.warning(f"No direction information found for route {route_id}")
+            return {
+                "status": "success",
+                "message": f"No direction information found{f' for route {route_id}' if route_id else ''}",
+                "data": []
+            }
+        
+        # Group by route and direction
+        routes_data = {}
+        for row in rows:
+            route_key = row.route_id
+            if route_key not in routes_data:
+                routes_data[route_key] = {
+                    "route_id": row.route_id,
+                    "route_short_name": row.route_short_name,
+                    "route_long_name": row.route_long_name,
+                    "route_color": row.route_color,
+                    "route_text_color": row.route_text_color,
+                    "directions": {}
+                }
+            
+            direction_key = row.direction_id or 0
+            if direction_key not in routes_data[route_key]["directions"]:
+                routes_data[route_key]["directions"][direction_key] = {
+                    "direction_id": direction_key,
+                    "direction_name": "Outbound" if direction_key == 0 else "Inbound",
+                    "headsigns": set(),
+                    "trip_count": 0
+                }
+            
+            if row.trip_headsign:
+                routes_data[route_key]["directions"][direction_key]["headsigns"].add(row.trip_headsign)
+        
+        # Get trip counts for each direction
+        for route_id_key, route_data in routes_data.items():
+            for direction_id in route_data["directions"]:
+                count_result = await db.execute(
+                    select(GTFSTrip.trip_id)
+                    .where(GTFSTrip.route_id == route_id_key)
+                    .where(GTFSTrip.direction_id == direction_id)
+                )
+                trip_count = len(count_result.fetchall())
+                route_data["directions"][direction_id]["trip_count"] = trip_count
+                route_data["directions"][direction_id]["headsigns"] = list(route_data["directions"][direction_id]["headsigns"])
+        
+        # Convert to list and clean up
+        routes_list = []
+        for route_data in routes_data.values():
+            route_data["directions"] = list(route_data["directions"].values())
+            routes_list.append(route_data)
+        
+        routes_list.sort(key=lambda x: x["route_short_name"] or "")
+        
+        logger.info(f"Returning {len(routes_list)} routes with direction information")
+        return {
+            "status": "success",
+            "message": f"Found {len(routes_list)} routes with direction information",
+            "data": routes_list
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching routes with directions: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "status": "error",
+                "message": f"Error fetching routes with directions: {str(e)}"
+            }
+        )
+
 @router.get("/routes/{route_id}", response_model=Dict[str, Any])
 async def get_route(
     route_id: str,
@@ -363,20 +482,56 @@ async def simulate_vehicle_updates(manager):
 @router.get("/vehicles/realtime")
 async def get_realtime_vehicles(
     route_id: Optional[str] = Query(None, description="Filter vehicles by route ID"),
-    agency: str = Query("golden_gate", description="Transit agency")
+    agency: str = Query("golden_gate", description="Transit agency"),
+    db: AsyncSession = Depends(get_db)
 ):
     """
-    Get real-time vehicle positions from live feeds.
+    Get real-time vehicle positions from live feeds with direction information.
     
-    Returns current vehicle positions updated from real transit agency APIs.
+    Returns current vehicle positions updated from real transit agency APIs,
+    enhanced with direction_id and headsign information from GTFS data.
     """
     try:
         vehicles = await auto_updater.get_current_vehicles(agency, route_id)
         
+        # Enhance vehicles with direction information by looking up trip data
+        enhanced_vehicles = []
+        for vehicle in vehicles:
+            enhanced_vehicle = dict(vehicle)
+            
+            # Look up trip information to get direction_id and headsign
+            if vehicle.get('trip_id'):
+                try:
+                    trip_result = await db.execute(
+                        select(GTFSTrip.direction_id, GTFSTrip.trip_headsign)
+                        .where(GTFSTrip.trip_id == vehicle['trip_id'])
+                    )
+                    trip_data = trip_result.fetchone()
+                    
+                    if trip_data:
+                        enhanced_vehicle['direction_id'] = trip_data.direction_id
+                        enhanced_vehicle['direction_name'] = "Outbound" if trip_data.direction_id == 0 else "Inbound"
+                        enhanced_vehicle['headsign'] = trip_data.trip_headsign
+                    else:
+                        enhanced_vehicle['direction_id'] = None
+                        enhanced_vehicle['direction_name'] = None
+                        enhanced_vehicle['headsign'] = None
+                except Exception as e:
+                    logger.warning(f"Could not fetch trip data for trip_id {vehicle.get('trip_id')}: {e}")
+                    enhanced_vehicle['direction_id'] = None
+                    enhanced_vehicle['direction_name'] = None
+                    enhanced_vehicle['headsign'] = None
+            else:
+                enhanced_vehicle['direction_id'] = None
+                enhanced_vehicle['direction_name'] = None
+                enhanced_vehicle['headsign'] = None
+            
+            enhanced_vehicles.append(enhanced_vehicle)
+        
         return {
             "status": "success",
-            "message": f"Found {len(vehicles)} active vehicles",
-            "data": vehicles,
+            "message": f"Found {len(enhanced_vehicles)} active vehicles",
+            "data": enhanced_vehicles,
             "last_updated": auto_updater.vehicle_positions.get(agency, {}).get("timestamp"),
             "agency": agency
         }
@@ -464,3 +619,37 @@ async def get_data_status():
             status_code=500, 
             detail={"status": "error", "message": str(e)}
         )
+
+@router.get("/debug/trips")
+async def debug_trips(db: AsyncSession = Depends(get_db)):
+    """Debug endpoint to check trip data"""
+    try:
+        # Check trips count
+        trip_count_result = await db.execute(select(GTFSTrip).limit(1))
+        trip_count = len(trip_count_result.fetchall())
+        
+        # Get sample trips
+        sample_trips_result = await db.execute(
+            select(GTFSTrip.trip_id, GTFSTrip.route_id, GTFSTrip.direction_id, GTFSTrip.trip_headsign)
+            .limit(10)
+        )
+        sample_trips = sample_trips_result.fetchall()
+        
+        # Check routes count  
+        route_count_result = await db.execute(select(GTFSRouteModel).limit(1))
+        route_count = len(route_count_result.fetchall())
+        
+        return {
+            "trip_count": trip_count,
+            "route_count": route_count,
+            "sample_trips": [
+                {
+                    "trip_id": t.trip_id,
+                    "route_id": t.route_id, 
+                    "direction_id": t.direction_id,
+                    "trip_headsign": t.trip_headsign
+                } for t in sample_trips
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e), "type": type(e).__name__}
