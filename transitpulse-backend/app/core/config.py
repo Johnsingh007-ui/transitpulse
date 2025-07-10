@@ -1,11 +1,34 @@
 import os
 from pydantic import AnyUrl, Field, PostgresDsn, RedisDsn
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, Dict, Any
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "TransitPulse API"
+    PROJECT_NAME: str = "TransitPulse Agency Platform"
     API_V1_STR: str = "/api/v1"
+    
+    # Agency configuration
+    DEFAULT_AGENCY_ID: str = Field(
+        default="golden_gate_transit",
+        env="DEFAULT_AGENCY_ID"
+    )
+    
+    # Agency branding and configuration
+    AGENCY_CONFIGS: Dict[str, Dict[str, Any]] = {
+        "golden_gate_transit": {
+            "name": "Golden Gate Transit",
+            "display_name": "Golden Gate Transit",
+            "short_name": "GGT",
+            "website": "https://www.goldengate.org/",
+            "color_primary": "#0052A3",
+            "color_secondary": "#FFD700",
+            "logo_url": "/logos/ggt-logo.png",
+            "gtfs_static_url": "https://gtfs.goldengate.org/gtfs/google_transit.zip",
+            "gtfs_rt_vehicles_url": "https://api.goldengate.org/public/gtfs-rt/vehicles",
+            "enabled": True
+        }
+        # Additional agencies can be added here
+    }
     
     # Database configuration
     DATABASE_URL: str = Field(
