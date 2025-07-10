@@ -140,7 +140,7 @@ cd transitpulse-backend && python init_db.py
 cd transitpulse-backend
 
 # Start with auto-reload for development
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn app.main:app --host 0.0.0.0 --port 9002 --reload
 
 # Run database initialization
 python init_db.py
@@ -173,9 +173,9 @@ npm run preview
 ### API Documentation
 
 When the backend is running, you can access:
-- Interactive API docs: http://localhost:8000/docs
-- OpenAPI spec: http://localhost:8000/openapi.json
-- Test endpoint: http://localhost:8000/api/v1/test
+- Interactive API docs: http://localhost:9002/docs
+- OpenAPI spec: http://localhost:9002/openapi.json
+- Test endpoint: http://localhost:9002/api/v1/test
 
 ## GTFS Data Loading
 
@@ -279,15 +279,15 @@ The system automatically handles data validation, deduplication, and database up
 - **Tables not found**: Run `python init_db.py` to create database tables
 
 ### Backend Issues
-- **Port 8000 in use**: Check if another process is using port 8000: `lsof -i :8000`
+- **Port 9002 in use**: Check if another process is using port 9002: `lsof -i :9002`
 - **Import errors**: Ensure you're running from the `transitpulse-backend` directory
 - **Database connection**: Verify PostgreSQL is running with `docker-compose ps`
 
 ### Frontend Issues
 - **Port 3002 in use**: Vite will automatically use the next available port
-- **API connection**: Ensure the backend is running at http://localhost:8000
+- **API connection**: Ensure the backend is running at http://localhost:9002
 - **Build errors**: Clear node_modules and reinstall: `rm -rf node_modules && npm install`
-- **HTTP 401 errors**: Check that the vite.config.ts proxy points to the correct backend port (8000)
+- **HTTP 401 errors**: Check that the vite.config.ts proxy points to the correct backend port (9002)
 
 ### General
 - **Docker issues**: Ensure Docker Desktop/Engine is running

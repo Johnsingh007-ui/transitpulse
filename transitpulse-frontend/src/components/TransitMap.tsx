@@ -37,6 +37,9 @@ interface Vehicle {
   timestamp: string;
   agency: string;
   status: number;
+  direction_id?: number;
+  direction_name?: string;
+  headsign?: string;
 }
 
 // Fix Leaflet default markers
@@ -316,8 +319,8 @@ const TransitMap: React.FC<TransitMapProps> = ({ selectedRouteId }) => {
               icon={createBusIcon(routeColor, vehicle.status)}
             >
               <Popup>
-                <VStack align="start" spacing={1}>
-                  <Text fontWeight="bold">
+                <VStack align="start" spacing={2}>
+                  <Text fontWeight="bold" fontSize="md">
                     Route {vehicle.route_id} - Bus #{vehicle.vehicle_id}
                   </Text>
                   {route && (
@@ -325,9 +328,35 @@ const TransitMap: React.FC<TransitMapProps> = ({ selectedRouteId }) => {
                       {route.route_long_name}
                     </Text>
                   )}
+                  {vehicle.direction_name && (
+                    <HStack>
+                      <Badge 
+                        colorScheme={vehicle.direction_id === 0 ? "blue" : "green"}
+                        variant="solid"
+                        fontSize="xs"
+                      >
+                        {vehicle.direction_name}
+                      </Badge>
+                      {vehicle.direction_id !== undefined && (
+                        <Text fontSize="xs" color="gray.500">
+                          (Dir. {vehicle.direction_id})
+                        </Text>
+                      )}
+                    </HStack>
+                  )}
+                  {vehicle.headsign && (
+                    <Text fontSize="sm" fontStyle="italic" color="blue.600">
+                      → {vehicle.headsign}
+                    </Text>
+                  )}
                   <Text fontSize="xs">
                     Status: {vehicle.status === 1 ? "In Transit" : "Stopped"}
                   </Text>
+                  {vehicle.speed && (
+                    <Text fontSize="xs">
+                      Speed: {Math.round(vehicle.speed)} mph
+                    </Text>
+                  )}
                   <Text fontSize="xs">
                     Last update: {new Date(vehicle.timestamp).toLocaleTimeString()}
                   </Text>

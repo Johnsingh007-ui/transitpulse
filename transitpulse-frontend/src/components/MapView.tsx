@@ -428,22 +428,46 @@ const MapView = ({ vehicles: initialVehicles, center, zoom, isLoading, error }: 
                 icon={icon}
               >
                 <Popup>
-                  <div style={{ minWidth: '180px' }}>
+                  <div style={{ minWidth: '200px' }}>
                     <div style={{ 
                       fontWeight: 'bold', 
-                      marginBottom: '5px',
-                      color: '#1a73e8'
+                      marginBottom: '8px',
+                      color: '#1a73e8',
+                      fontSize: '16px'
                     }}>
                       {vehicle.label || `Bus ${vehicle.vehicle_id}`}
                     </div>
-                    <div style={{ marginBottom: '3px' }}>
+                    <div style={{ marginBottom: '4px' }}>
                       <span style={{ fontWeight: '500' }}>Route:</span> {vehicle.route_id}
                     </div>
-                    <div style={{ marginBottom: '3px' }}>
+                    {vehicle.direction_name && (
+                      <div style={{ marginBottom: '4px' }}>
+                        <span style={{ fontWeight: '500' }}>Direction:</span> 
+                        <span style={{ 
+                          backgroundColor: vehicle.direction_id === 0 ? '#e3f2fd' : '#e8f5e8',
+                          color: vehicle.direction_id === 0 ? '#1976d2' : '#388e3c',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          marginLeft: '4px',
+                          fontSize: '12px'
+                        }}>
+                          {vehicle.direction_name}
+                        </span>
+                      </div>
+                    )}
+                    {vehicle.headsign && (
+                      <div style={{ marginBottom: '4px' }}>
+                        <span style={{ fontWeight: '500' }}>Destination:</span> 
+                        <span style={{ fontStyle: 'italic', marginLeft: '4px' }}>
+                          {vehicle.headsign}
+                        </span>
+                      </div>
+                    )}
+                    <div style={{ marginBottom: '4px' }}>
                       <span style={{ fontWeight: '500' }}>Status:</span> {vehicle.current_status}
                     </div>
                     {vehicle.speed && (
-                      <div style={{ marginBottom: '3px' }}>
+                      <div style={{ marginBottom: '4px' }}>
                         <span style={{ fontWeight: '500' }}>Speed:</span> {Math.round(vehicle.speed)} km/h
                       </div>
                     )}
