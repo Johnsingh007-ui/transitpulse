@@ -7,7 +7,7 @@ def check_vehicles():
         conn = psycopg2.connect(
             dbname="transitpulse_db",
             user="user",
-            password="mysecretpassword",
+            password="transitpulse_pass",
             host="localhost",
             port="5432"
         )

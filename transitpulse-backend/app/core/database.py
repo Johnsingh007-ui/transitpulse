@@ -1,8 +1,10 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.ext.declarative import declarative_base
+from app.core.base import Base
 from sqlalchemy.orm import sessionmaker
 from databases import Database # Still use this for direct connection mgmt
 from app.core.config import settings
+# Ensure all models are imported so their tables are registered
+import app.models
 import asyncio # Import asyncio for running create_db_and_tables
 
 DATABASE_URL = settings.DATABASE_URL
@@ -13,7 +15,6 @@ database = Database(DATABASE_URL)
 # Use asyncpg driver with SQLAlchemy
 engine = create_async_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession)
-Base = declarative_base()
 
 async def get_db():
     async with SessionLocal() as session:

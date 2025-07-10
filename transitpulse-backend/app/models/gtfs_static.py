@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Float, Integer, Text, Time, Date
-from app.core.database import Base
+from app.core.base import Base
 
 # GTFS Static Models
 class GTFSRoute(Base):

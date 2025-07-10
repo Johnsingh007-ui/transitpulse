@@ -8,7 +8,7 @@ async def list_tables():
             host='localhost',
             port=5432,
             user='transitpulse_user',
-            password='mysecretpassword',
+            password='transitpulse_pass',
             database='transitpulse_db'
         )
         

@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Float, Integer, DateTime
-from app.core.database import Base
+from app.core.base import Base
 from datetime import datetime
 
 class LiveVehiclePosition(Base):

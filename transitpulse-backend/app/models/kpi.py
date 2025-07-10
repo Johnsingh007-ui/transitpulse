@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Float, Integer, String, DateTime
-from app.core.database import Base
+from app.core.base import Base
 from datetime import datetime
 
 class KPISummary(Base):

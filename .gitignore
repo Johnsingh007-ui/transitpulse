@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+
+# Node.js
+node_modules/
+*.log
+.parcel-cache/
+
+# VS Code
+.vscode/
+
+# Mac OS
+.DS_Store
+
+# Build and output files
+dist/
+build/
+*.map
+
+# PowerShell scripts (if not needed)
+*.ps1
+
+# Zip files
+*.zip

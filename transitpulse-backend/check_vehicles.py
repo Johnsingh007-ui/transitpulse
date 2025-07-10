@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
 
 # Database configuration
-DATABASE_URL = "postgresql+asyncpg://user:mysecretpassword@localhost:5432/transitpulse_db"
+DATABASE_URL = "postgresql+asyncpg://user:transitpulse_pass@localhost:5432/transitpulse_db"
 
 # Create engine and session
 engine = create_async_engine(DATABASE_URL)
