@@ -2,6 +2,17 @@
 
 A real-time transit monitoring and analytics platform for tracking and analyzing public transportation data using GTFS (General Transit Feed Specification) and GTFS-RT (Real-time) feeds.
 
+**✅ Currently loaded with real Golden Gate Transit GTFS data!**
+
+## Features
+
+- 🚌 **Real GTFS Data**: Loaded with Golden Gate Transit routes and stops
+- 📊 **Route Analytics**: View route statistics and network information  
+- 🗺️ **Route Details**: Detailed route information with stop listings
+- 🎨 **Modern UI**: Beautiful, responsive interface with route color coding
+- ♿ **Accessibility**: Wheelchair accessibility indicators for stops
+- 🔗 **External Links**: Direct links to official transit schedules
+
 ## Prerequisites
 
 - Docker and Docker Compose
@@ -31,11 +42,14 @@ pip install -r requirements.txt
 # Initialize database tables
 python init_db.py
 
+# Load sample GTFS data (Golden Gate Transit already loaded)
+python -m data_ingestion.gtfs_static_loader --gtfs-zip path/to/gtfs.zip
+
 # Start the FastAPI backend
-python main.py
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The backend will be available at: http://localhost:9000
+The backend will be available at: **http://localhost:8000**
 
 ### 3. Setup Frontend
 
@@ -49,7 +63,7 @@ npm install
 npm run dev
 ```
 
-The frontend will be available at: http://localhost:5173
+The frontend will be available at: **http://localhost:3002**
 
 ## Project Structure
 
@@ -117,10 +131,13 @@ cd transitpulse-backend && python init_db.py
 cd transitpulse-backend
 
 # Start with auto-reload for development
-python main.py
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Run database initialization
 python init_db.py
+
+# Load GTFS data
+python -m data_ingestion.gtfs_static_loader --gtfs-zip path/to/gtfs.zip
 
 # Check database connection
 python test_db_connection.py
@@ -147,8 +164,9 @@ npm run preview
 ### API Documentation
 
 When the backend is running, you can access:
-- Interactive API docs: http://localhost:9000/docs
-- OpenAPI spec: http://localhost:9000/openapi.json
+- Interactive API docs: http://localhost:8000/docs
+- OpenAPI spec: http://localhost:8000/openapi.json
+- Test endpoint: http://localhost:8000/api/v1/test
 
 ## GTFS Data Loading
 
@@ -159,6 +177,31 @@ cd transitpulse-backend
 python -m data_ingestion.gtfs_static_loader --gtfs-zip path/to/gtfs.zip
 ```
 
+## Current Data
+
+The application currently comes pre-loaded with real **Golden Gate Transit** GTFS data including:
+
+- **12 bus routes** with complete route information
+- **500+ stops** with GPS coordinates and accessibility data  
+- **Route colors and branding** from the official Golden Gate Transit system
+- **Direct links** to official schedules and route information
+- **Wheelchair accessibility** indicators for all stops
+
+### Sample Routes Available:
+- Route 101: Santa Rosa - San Francisco
+- Route 125: San Rafael - San Francisco  
+- Route 580: San Rafael - Richmond
+- And 9 more Golden Gate Transit routes
+
+## API Endpoints
+
+The backend provides several REST API endpoints:
+
+- `GET /api/v1/routes` - List all available routes
+- `GET /api/v1/routes/{route_id}` - Get detailed route information
+- `GET /api/v1/stops?route_id={route_id}` - Get stops for a specific route
+- `GET /api/v1/test` - Health check endpoint
+
 ## Troubleshooting
 
 ### Database Issues
@@ -167,14 +210,15 @@ python -m data_ingestion.gtfs_static_loader --gtfs-zip path/to/gtfs.zip
 - **Tables not found**: Run `python init_db.py` to create database tables
 
 ### Backend Issues
-- **Port 9000 in use**: Check if another process is using port 9000
+- **Port 8000 in use**: Check if another process is using port 8000: `lsof -i :8000`
 - **Import errors**: Ensure you're running from the `transitpulse-backend` directory
 - **Database connection**: Verify PostgreSQL is running with `docker-compose ps`
 
 ### Frontend Issues
-- **Port 5173 in use**: Vite will automatically use the next available port
-- **API connection**: Ensure the backend is running at http://localhost:9000
+- **Port 3002 in use**: Vite will automatically use the next available port
+- **API connection**: Ensure the backend is running at http://localhost:8000
 - **Build errors**: Clear node_modules and reinstall: `rm -rf node_modules && npm install`
+- **HTTP 401 errors**: Check that the vite.config.ts proxy points to the correct backend port (8000)
 
 ### General
 - **Docker issues**: Ensure Docker Desktop/Engine is running

@@ -254,17 +254,16 @@ export const getRouteDetails = async (routeId: string): Promise<ApiResponse<Rout
   try {
     console.log(`Fetching details for route ${routeId}`);
     
-    // Fetch route details
-    const [routeRes, shapesRes, stopsRes] = await Promise.all([
-      apiClient.get(`/routes/${routeId}`),
-      apiClient.get(`/shapes?route_id=${routeId}`),
-      apiClient.get(`/stops?route_id=${routeId}`)
-    ]);
+    // The new API returns route details with shapes and stops in one call
+    const routeRes = await apiClient.get(`/routes/${routeId}`);
     
-    // Process shapes
+    // Extract data from response
+    const routeData = routeRes.data;
+    
+    // Process shapes from the combined response
     const shapes: Shape[] = [];
-    if (shapesRes.data && Array.isArray(shapesRes.data)) {
-      shapesRes.data.forEach((shape: any) => {
+    if (routeData.shapes && Array.isArray(routeData.shapes)) {
+      routeData.shapes.forEach((shape: any) => {
         if (shape.shape_id && Array.isArray(shape.points)) {
           shapes.push({
             shape_id: shape.shape_id,
@@ -278,10 +277,10 @@ export const getRouteDetails = async (routeId: string): Promise<ApiResponse<Rout
       });
     }
     
-    // Process stops
+    // Process stops from the combined response
     const stops: Stop[] = [];
-    if (stopsRes.data && Array.isArray(stopsRes.data)) {
-      stopsRes.data.forEach((stop: any) => {
+    if (routeData.stops && Array.isArray(routeData.stops)) {
+      routeData.stops.forEach((stop: any) => {
         if (stop.stop_id) {
           stops.push({
             stop_id: stop.stop_id,
@@ -296,7 +295,7 @@ export const getRouteDetails = async (routeId: string): Promise<ApiResponse<Rout
     
     return {
       data: {
-        route: routeRes.data,
+        route: routeData.route,
         shapes,
         stops
       },
@@ -381,6 +380,38 @@ export const getShapes = async (shapeId?: string): Promise<ApiResponse<Record<st
       data: {},
       status: 'error',
       message: error instanceof Error ? error.message : 'Failed to fetch shapes'
+    };
+  }
+};
+
+/**
+ * Get stops for a specific route
+ */
+export const getRouteStops = async (routeId: string): Promise<ApiResponse<Stop[]>> => {
+  try {
+    console.log(`Fetching stops for route ${routeId}`);
+    
+    const response = await apiClient.get(`/stops?route_id=${routeId}`);
+    
+    if (response.data.status === 'success') {
+      return {
+        data: response.data.data || [],
+        status: 'success',
+        message: response.data.message
+      };
+    } else {
+      return {
+        data: [],
+        status: 'error',
+        message: response.data.message || 'Failed to fetch stops'
+      };
+    }
+  } catch (error) {
+    console.error(`Error fetching stops for route ${routeId}:`, error);
+    return {
+      data: [],
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 };

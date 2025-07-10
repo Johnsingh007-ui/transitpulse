@@ -3,14 +3,19 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, Union
+import logging
 
 from app.core.database import get_db
-from app.models.gtfs_static import GTFSRoute as GTFSRouteModel, GTFSStop, GTFSStopTime, GTFSTrip
+from app.models.gtfs_static import (
+    GTFSRoute as GTFSRouteModel, 
+    GTFSStop as GTFSStopModel, 
+    GTFSStopTime, 
+    GTFSTrip,
+    GTFSShape
+)
 from app.websocket.manager import manager
-from app.schemas.gtfs import GTFSRoute, GTFSRouteResponse, GTFSStop, GTFSStopResponse
-from typing import List, Dict, Any, Optional, Union
-import logging
+from app.schemas.gtfs import GTFSRoute, GTFSRouteResponse, GTFSStop as GTFSStopSchema, GTFSStopResponse
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -68,6 +73,92 @@ async def get_gtfs_routes(
             }
         )
 
+@router.get("/test")
+async def test_connection():
+    """Test endpoint to verify API is running."""
+    return {"port": 8000, "status": "success", "message": "API is running"}
+
+@router.get("/stops", response_model=GTFSStopResponse, name="get_stops")
+async def get_stops_by_route(
+    route_id: str = Query(..., description="Filter stops by route ID (can be full ID like 'GG_101' or just the number '101')"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all stops for a specific route.
+    
+    This endpoint returns all stops that are served by trips belonging to the specified route.
+    Accepts both full route IDs (e.g., 'GG_101') and numeric route IDs (e.g., '101').
+    """
+    try:
+        # If route_id is numeric, try to find a matching route with any agency prefix
+        actual_route_id = route_id
+        if route_id.isdigit():
+            result = await db.execute(
+                select(GTFSRouteModel.route_id)
+                .where(GTFSRouteModel.route_id.endswith(f'_{route_id}'))
+            )
+            matching_route = result.scalar_one_or_none()
+            if matching_route:
+                actual_route_id = matching_route  # Use the full route ID
+
+        # Get trips for this route
+        result = await db.execute(
+            select(GTFSTrip.trip_id)
+            .where(GTFSTrip.route_id == actual_route_id)
+        )
+        trip_ids = [trip[0] for trip in result.fetchall()]
+        
+        if not trip_ids:
+            return {
+                "status": "success",
+                "message": "No trips found for this route",
+                "data": []
+            }
+        
+        # Get stops via stop_times
+        result = await db.execute(
+            select(GTFSStopModel)
+            .join(GTFSStopTime, GTFSStopModel.stop_id == GTFSStopTime.stop_id)
+            .where(GTFSStopTime.trip_id.in_(trip_ids))
+            .distinct()
+            .order_by(GTFSStopModel.stop_name)
+        )
+        
+        # Convert SQLAlchemy objects to dictionaries
+        stops = []
+        for stop in result.scalars().all():
+            stop_dict = {
+                'stop_id': stop.stop_id,
+                'stop_code': stop.stop_code,
+                'stop_name': stop.stop_name,
+                'stop_lat': float(stop.stop_lat) if stop.stop_lat is not None else None,
+                'stop_lon': float(stop.stop_lon) if stop.stop_lon is not None else None,
+                'zone_id': stop.zone_id,
+                'wheelchair_boarding': stop.wheelchair_boarding
+            }
+            # Only add the stop if it has a valid stop_id
+            if stop_dict['stop_id'] is not None:
+                stops.append(stop_dict)
+        
+        return {
+            "status": "success",
+            "message": f"Found {len(stops)} stops for route {route_id}",
+            "data": stops
+        }
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error in get_stops_by_route: {error_details}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "status": "error",
+                "message": f"Error fetching stops: {str(e)}",
+                "details": str(e)
+            }
+        )
+
 async def get_route_details(db: AsyncSession, route_id: str) -> Optional[Dict[str, Any]]:
     """Helper function to get detailed route information including shapes and stops."""
     try:
@@ -93,36 +184,38 @@ async def get_route_details(db: AsyncSession, route_id: str) -> Optional[Dict[st
         stops = []
         if trip_ids:
             result = await db.execute(
-                select(GTFSStop)
-                .join(GTFSStopTime, GTFSStop.stop_id == GTFSStopTime.stop_id)
+                select(GTFSStopModel)
+                .join(GTFSStopTime, GTFSStopModel.stop_id == GTFSStopTime.stop_id)
                 .where(GTFSStopTime.trip_id.in_(trip_ids))
                 .distinct()
             )
             stops = [{
                 "stop_id": stop.stop_id,
                 "stop_name": stop.stop_name,
-                "stop_lat": float(stop.stop_lat),
-                "stop_lon": float(stop.stop_lon),
+                "stop_lat": float(stop.stop_lat) if stop.stop_lat else None,
+                "stop_lon": float(stop.stop_lon) if stop.stop_lon else None,
                 "wheelchair_boarding": stop.wheelchair_boarding
             } for stop in result.scalars().all()]
         
         # Get shapes
-        shape_result = await db.execute(
-            select(GTFSShape)
-            .where(GTFSShape.shape_id.in_([t.shape_id for t in trips if t.shape_id]))
-            .order_by(GTFSShape.shape_pt_sequence)
-        )
-        
-        # Group shape points by shape_id
         shapes_dict = {}
-        for shape in shape_result.scalars().all():
-            if shape.shape_id not in shapes_dict:
-                shapes_dict[shape.shape_id] = []
-            shapes_dict[shape.shape_id].append({
-                "lat": float(shape.shape_pt_lat),
-                "lon": float(shape.shape_pt_lon),
-                "sequence": shape.shape_pt_sequence
-            })
+        if trip_ids:
+            shape_result = await db.execute(
+                select(GTFSShape)
+                .join(GTFSTrip, GTFSShape.shape_id == GTFSTrip.shape_id)
+                .where(GTFSTrip.route_id == route_id)
+                .order_by(GTFSShape.shape_id, GTFSShape.shape_pt_sequence)
+            )
+            
+            # Group shape points by shape_id
+            for shape in shape_result.scalars().all():
+                if shape.shape_id not in shapes_dict:
+                    shapes_dict[shape.shape_id] = []
+                shapes_dict[shape.shape_id].append({
+                    "lat": float(shape.shape_pt_lat),
+                    "lon": float(shape.shape_pt_lon),
+                    "sequence": shape.shape_pt_sequence
+                })
         
         # Convert route to dict
         route_dict = {
@@ -139,99 +232,6 @@ async def get_route_details(db: AsyncSession, route_id: str) -> Optional[Dict[st
     except Exception as e:
         logger.error(f"Error getting route details for {route_id}", exc_info=True)
         return None
-
-@router.get("/test")
-async def test_connection():
-    """Test endpoint to verify API is running."""
-    return {"port": 8000, "status": "success", "message": "API is running"}
-
-@router.get("/stops", response_model=GTFSStopResponse, name="get_stops")
-async def get_stops_by_route(
-    route_id: str = Query(..., description="Filter stops by route ID (can be full ID like 'GG_101' or just the number '101')"),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Get all stops for a specific route.
-    
-    This endpoint returns all stops that are served by trips belonging to the specified route.
-    Accepts both full route IDs (e.g., 'GG_101') and numeric route IDs (e.g., '101').
-    """
-    # If route_id is numeric, try to find a matching route with any agency prefix
-    if route_id.isdigit():
-        result = await db.execute(
-            select(GTFSRouteModel.route_id)
-            .where(GTFSRouteModel.route_id.endswith(f'_{route_id}'))
-        )
-        matching_route = result.scalar_one_or_none()
-        if matching_route:
-            route_id = matching_route  # Use the full route ID
-    try:
-        # Get trips for this route
-        result = await db.execute(
-            select(GTFSTrip.trip_id)
-            .where(GTFSTrip.route_id == route_id)
-        )
-        trip_ids = [trip[0] for trip in result.fetchall()]
-        
-        if not trip_ids:
-            return {
-                "status": "success",
-                "message": "No trips found for this route",
-                "data": []
-            }
-        
-        # Get stops via stop_times
-        result = await db.execute(
-            select(
-                GTFSStop.stop_id,
-                GTFSStop.stop_code,
-                GTFSStop.stop_name,
-                GTFSStop.stop_lat,
-                GTFSStop.stop_lon,
-                GTFSStop.zone_id,
-                GTFSStop.wheelchair_boarding
-            )
-            .select_from(GTFSStop)
-            .join(GTFSStopTime, GTFSStop.stop_id == GTFSStopTime.stop_id)
-            .where(GTFSStopTime.trip_id.in_(trip_ids))
-            .distinct()
-            .order_by(GTFSStop.stop_name)
-        )
-        
-        # Convert Row objects to dictionaries and ensure all required fields exist
-        stops = []
-        for row in result.all():
-            stop_dict = {
-                'stop_id': row[0],  # stop_id
-                'stop_code': row[1],  # stop_code
-                'stop_name': row[2],  # stop_name
-                'stop_lat': float(row[3]) if row[3] is not None else None,  # stop_lat
-                'stop_lon': float(row[4]) if row[4] is not None else None,  # stop_lon
-                'zone_id': row[5],  # zone_id
-                'wheelchair_boarding': row[6]  # wheelchair_boarding
-            }
-            # Only add the stop if it has a valid stop_id
-            if stop_dict['stop_id'] is not None:
-                stops.append(stop_dict)
-        
-        return {
-            "status": "success",
-            "message": f"Found {len(stops)} stops for route {route_id}",
-            "data": stops
-        }
-        
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"Error in get_stops_by_route: {error_details}")
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "status": "error",
-                "message": f"Error fetching stops: {str(e)}",
-                "details": str(e)
-            }
-        )
 
 @router.get("/routes/{route_id}", response_model=Dict[str, Any])
 async def get_route(
@@ -351,5 +351,3 @@ async def simulate_vehicle_updates(manager):
         except Exception as e:
             print(f"Error in vehicle update simulation: {e}")
             await asyncio.sleep(5)  # Wait before retrying
-
-# The simulate_vehicle_updates function is now called from main.py

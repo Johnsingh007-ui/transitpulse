@@ -13,7 +13,7 @@ export default defineConfig({
     proxy: {
       // Proxy all API requests to the backend
       '/api': {
-        target: 'http://localhost:9000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false
         // No rewrite needed, keeps /api/v1/... intact

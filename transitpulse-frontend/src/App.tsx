@@ -1,6 +1,7 @@
 import React from 'react';
 import { Container, Box, Heading, VStack, Text } from '@chakra-ui/react';
 import RouteList from './components/RouteList';
+import RouteStats from './components/RouteStats';
 
 const App: React.FC = () => {
   return (
@@ -12,6 +13,7 @@ const App: React.FC = () => {
             Real-time transit information at your fingertips
           </Text>
         </Box>
+        <RouteStats />
         <RouteList />
       </VStack>
     </Container>
