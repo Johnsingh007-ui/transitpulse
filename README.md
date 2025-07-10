@@ -7,13 +7,14 @@ A real-time transit monitoring and analytics platform for tracking and analyzing
 ## Features
 
 - 🚌 **Real GTFS Data**: Loaded with Golden Gate Transit routes and stops
+- 🧭 **Route Directions**: View routes by direction with headsigns and trip counts
 - 📊 **Route Analytics**: View route statistics and network information  
 - 🗺️ **Route Details**: Detailed route information with stop listings
 - 🎨 **Modern UI**: Beautiful, responsive interface with route color coding
 - ♿ **Accessibility**: Wheelchair accessibility indicators for stops
 - 🔗 **External Links**: Direct links to official transit schedules
 - 🔄 **Automatic Updates**: Daily GTFS static data updates from transit agency feeds
-- 🚍 **Real-time Vehicles**: Live vehicle position tracking (every 30 seconds)
+- 🚍 **Real-time Vehicles**: Live vehicle position tracking with direction information (every 30 seconds)
 - 📡 **Multiple Agencies**: Support for Golden Gate Transit, Muni, and AC Transit
 - 🔧 **Manual Updates**: Trigger immediate data updates via API
 
@@ -50,10 +51,12 @@ python init_db.py
 python -m data_ingestion.gtfs_static_loader --gtfs-zip path/to/gtfs.zip
 
 # Start the FastAPI backend
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python main.py
+# OR alternatively:
+# python -m uvicorn app.main:app --host 0.0.0.0 --port 9002 --reload
 ```
 
-The backend will be available at: **http://localhost:8000**
+The backend will be available at: **http://localhost:9002**
 
 ### 3. Setup Frontend
 
@@ -68,6 +71,8 @@ npm run dev
 ```
 
 The frontend will be available at: **http://localhost:3002**
+
+**Note**: The frontend is configured to proxy API requests to the backend at port 9002.
 
 ## Project Structure
 
@@ -224,12 +229,16 @@ The application currently comes pre-loaded with real **Golden Gate Transit** GTF
 The backend provides several REST API endpoints:
 
 - `GET /api/v1/routes` - List all available routes
+- `GET /api/v1/routes/directions` - Get routes with direction information (Inbound/Outbound)
+- `GET /api/v1/routes/directions?route_id={route_id}` - Get direction info for specific route
 - `GET /api/v1/routes/{route_id}` - Get detailed route information
 - `GET /api/v1/stops?route_id={route_id}` - Get stops for a specific route
-- `GET /api/v1/vehicles/realtime` - Get live vehicle positions from transit feeds
+- `GET /api/v1/vehicles/realtime` - Get live vehicle positions with direction information
+- `GET /api/v1/vehicles/realtime?route_id={route_id}` - Filter vehicles by route
 - `POST /api/v1/data/update-static` - Trigger manual GTFS data update
 - `GET /api/v1/data/status` - Get current data update status
 - `GET /api/v1/test` - Health check endpoint
+- `GET /api/v1/debug/trips` - Debug endpoint for trip data inspection
 
 ## Automated Data Updates
 
