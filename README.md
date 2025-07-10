@@ -1,22 +1,23 @@
-# TransitPulse
+# TransitPulse 🚌
 
-A real-time transit monitoring and analytics platform for tracking and analyzing public transportation data using GTFS (General Transit Feed Specification) and GTFS-RT (Real-time) feeds.
+A real-time transit monitoring and analytics platform designed for **transit agencies** to track their own fleet operations, generate performance reports, and monitor service quality. Currently focused on **Golden Gate Transit** with easy onboarding for additional agencies.
 
 **✅ Currently loaded with real Golden Gate Transit GTFS data!**
 
-## Features
+## ✨ Features for Transit Agencies
 
-- 🚌 **Real GTFS Data**: Loaded with Golden Gate Transit routes and stops
-- 🧭 **Route Directions**: View routes by direction with headsigns and trip counts
-- 📊 **Route Analytics**: View route statistics and network information  
-- 🗺️ **Route Details**: Detailed route information with stop listings
-- 🎨 **Modern UI**: Beautiful, responsive interface with route color coding
-- ♿ **Accessibility**: Wheelchair accessibility indicators for stops
-- 🔗 **External Links**: Direct links to official transit schedules
-- 🔄 **Automatic Updates**: Daily GTFS static data updates from transit agency feeds
-- 🚍 **Real-time Vehicles**: Live vehicle position tracking with direction information (every 30 seconds)
-- 📡 **Multiple Agencies**: Support for Golden Gate Transit, Muni, and AC Transit
-- 🔧 **Manual Updates**: Trigger immediate data updates via API
+- 🚌 **Fleet Monitoring**: Real-time tracking of your agency's vehicles with live position updates
+- 🧭 **Route Management**: View routes by direction with headsigns and trip counts
+- 📊 **Performance Analytics**: Route statistics and network performance metrics for your agency  
+- 🗺️ **Route Details**: Detailed route information with stop listings and service patterns
+- 🎨 **Modern Dashboard**: Beautiful, responsive interface with your agency's route color coding
+- ♿ **Accessibility Tracking**: Monitor wheelchair accessibility across your fleet and stops
+- 🔗 **Integration Ready**: Direct links to your official transit schedules and external systems
+- 🔄 **Automatic Updates**: Daily GTFS static data updates from your agency's feeds
+- 🚍 **Real-time Fleet**: Live vehicle position tracking with direction information (30-second updates)
+- 📡 **Multi-Agency Support**: Currently Golden Gate Transit, with easy onboarding for new agencies
+- 🔧 **On-Demand Updates**: Trigger immediate data updates via API for schedule changes
+- 📈 **Agency Reports**: Generate performance reports and analytics for your operations
 
 ## Prerequisites
 
@@ -73,6 +74,17 @@ npm run dev
 The frontend will be available at: **http://localhost:3002**
 
 **Note**: The frontend is configured to proxy API requests to the backend at port 9002.
+
+## 🌐 Access Information
+
+Once both services are running:
+
+- **Frontend (Web Interface)**: http://localhost:3002
+- **Backend API**: http://localhost:9002  
+- **API Documentation**: http://localhost:9002/docs
+- **PostgreSQL Database**: localhost:5432 (via Docker)
+
+> **For Agencies**: The web interface at port 3002 is your main dashboard for monitoring your transit operations, generating reports, and viewing real-time vehicle positions.
 
 ## Project Structure
 
@@ -270,6 +282,174 @@ TransitPulse automatically fetches fresh data from official transit agency feeds
 - **AC Transit** (AC) - Alameda and Contra Costa county buses (planned)
 
 The system automatically handles data validation, deduplication, and database updates without manual intervention.
+
+## Onboarding New Transit Agencies
+
+TransitPulse is designed to support multiple transit agencies. While currently focused on **Golden Gate Transit**, you can easily add new agencies by configuring their GTFS feeds in the following locations:
+
+### 📋 Agency Onboarding Checklist
+
+When adding a new transit agency, you need to configure three types of feeds:
+
+1. **GTFS Static Feed** (routes, stops, schedules)
+2. **Vehicle Positions Feed** (real-time vehicle locations)  
+3. **Trip Updates Feed** (arrival predictions)
+
+### 🔧 Configuration File Locations
+
+#### 1. GTFS Static Feed URLs
+**File**: `transitpulse-backend/data_ingestion/gtfs_static_loader.py`
+
+Add your agency's static GTFS feed URL to the agency configuration:
+
+```python
+# Around line 20-30, add to the agency_feeds dictionary:
+agency_feeds = {
+    'golden_gate': 'https://realtime.goldengate.org/gtfsstatic/GTFSTransitData.zip',
+    'muni': 'https://gtfs.sfmta.com/transitdata/google_transit.zip',  # Example
+    'ac_transit': 'https://gtfs.actransit.org/gtfs/google_transit.zip',  # Example
+    'your_agency': 'https://your-agency.com/gtfs/gtfs.zip'  # Add your agency here
+}
+```
+
+#### 2. Auto-Update Configuration
+**File**: `transitpulse-backend/data_ingestion/auto_gtfs_updater.py`
+
+Add your agency to the auto-update scheduler:
+
+```python
+# Around line 15-25, add to the AGENCY_URLS dictionary:
+AGENCY_URLS = {
+    'golden_gate': 'https://realtime.goldengate.org/gtfsstatic/GTFSTransitData.zip',
+    'your_agency': 'https://your-agency.com/gtfs/gtfs.zip'  # Add here
+}
+```
+
+#### 3. Real-time Vehicle Positions
+**File**: `transitpulse-backend/data_ingestion/gtfs_rt_processor.py`
+
+Configure the vehicle positions feed URL:
+
+```python
+# Around line 10-20, add to vehicle_feeds:
+vehicle_feeds = {
+    'golden_gate': 'https://realtime.goldengate.org/gtfsrealtime/VehiclePositions',
+    'your_agency': 'https://your-agency.com/gtfs-realtime/vehicle-positions'  # Add here
+}
+```
+
+#### 4. Real-time Trip Updates
+**File**: `transitpulse-backend/data_ingestion/gtfsrt_ingestor.py`
+
+Add trip updates feed for arrival predictions:
+
+```python
+# Around line 15-25, add to trip_update_feeds:
+trip_update_feeds = {
+    'golden_gate': 'https://realtime.goldengate.org/gtfsrealtime/TripUpdates',
+    'your_agency': 'https://your-agency.com/gtfs-realtime/trip-updates'  # Add here
+}
+```
+
+#### 5. Backend API Configuration
+**File**: `transitpulse-backend/app/api/endpoints/gtfs.py`
+
+Add agency support to API endpoints:
+
+```python
+# Around line 200-210, add to supported agencies:
+@router.post("/data/update-static")
+async def update_static_data(agency: str = "golden_gate"):
+    """
+    Supported agencies:
+    - golden_gate: Golden Gate Transit
+    - your_agency: Your Agency Name  # Add here
+    """
+```
+
+#### 6. Database Models (if needed)
+**File**: `transitpulse-backend/app/models/gtfs_static.py`
+
+Ensure agency_id support is enabled in your models:
+
+```python
+# Verify agency_id field exists in relevant models:
+class Routes(Base):
+    # ...existing code...
+    agency_id: Mapped[Optional[str]] = mapped_column(String(255))
+```
+
+#### 7. Frontend API Client
+**File**: `transitpulse-frontend/src/api/apiClient.ts`
+
+Add agency parameter support to API calls:
+
+```typescript
+// Add agency parameter to data update calls:
+export const updateStaticData = async (agency: string = 'golden_gate') => {
+  return api.post(`/data/update-static?agency=${agency}`);
+};
+```
+
+#### 8. Environment Variables
+**File**: `transitpulse-backend/.env`
+
+Add any agency-specific API keys or tokens:
+
+```env
+# Golden Gate Transit (current)
+GOLDEN_GATE_API_KEY=your_api_key_here
+
+# Add new agency credentials as needed:
+YOUR_AGENCY_API_KEY=your_agency_api_key
+YOUR_AGENCY_TOKEN=your_agency_token
+```
+
+### 🚀 Testing New Agency Integration
+
+After configuring the files above:
+
+1. **Load Static Data**:
+   ```bash
+   cd transitpulse-backend
+   python -m data_ingestion.gtfs_static_loader --agency your_agency
+   ```
+
+2. **Test Vehicle Feed**:
+   ```bash
+   python -m data_ingestion.gtfs_rt_processor --agency your_agency
+   ```
+
+3. **Verify API Endpoints**:
+   ```bash
+   curl "http://localhost:9002/api/v1/routes?agency=your_agency"
+   curl "http://localhost:9002/api/v1/vehicles/realtime?agency=your_agency"
+   ```
+
+4. **Enable Auto-Updates**:
+   ```bash
+   python -m data_ingestion.auto_gtfs_updater --agency your_agency
+   ```
+
+### 📝 Agency-Specific Notes
+
+- **Feed Format**: Ensure GTFS feeds follow the [GTFS specification](https://gtfs.org/schedule/reference/)
+- **Real-time Format**: Vehicle and trip feeds should use [GTFS-Realtime](https://gtfs.org/realtime/reference/) protobuf format
+- **Authentication**: Some agencies require API keys - add them to `.env` file
+- **Update Frequency**: Configure appropriate update intervals (daily for static, 30s for real-time)
+- **Agency Colors**: Route colors will be automatically imported from the GTFS `routes.txt` file
+
+### 🎯 Current Focus: Golden Gate Transit
+
+**Currently Active Configuration:**
+- **Agency**: Golden Gate Transit (Marin/Sonoma County Bus Service)
+- **Static Feed**: https://realtime.goldengate.org/gtfsstatic/GTFSTransitData.zip
+- **Vehicle Positions**: https://realtime.goldengate.org/gtfsrealtime/VehiclePositions  
+- **Trip Updates**: https://realtime.goldengate.org/gtfsrealtime/TripUpdates
+- **Routes**: 25 bus routes with live tracking
+- **Vehicles**: 24+ vehicles currently tracked in real-time
+
+---
 
 ## Troubleshooting
 
