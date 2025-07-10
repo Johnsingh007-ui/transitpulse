@@ -17,6 +17,7 @@ import RouteList from './components/RouteList';
 import RouteDirections from './components/RouteDirections';
 import RouteStats from './components/RouteStats';
 import TransitMap from './components/TransitMap';
+import RouteSchedule from './components/RouteSchedule';
 
 const App: React.FC = () => {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
@@ -36,6 +37,7 @@ const App: React.FC = () => {
             <Tab>🗺️ Live Map</Tab>
             <Tab>📊 Routes & Stats</Tab>
             <Tab>🧭 Directions</Tab>
+            <Tab>📅 Schedules</Tab>
           </TabList>
           
           <TabPanels>
@@ -61,6 +63,21 @@ const App: React.FC = () => {
             
             <TabPanel>
               <RouteDirections onRouteSelect={setSelectedRouteId} selectedRouteId={selectedRouteId} />
+            </TabPanel>
+            
+            <TabPanel>
+              <Grid templateColumns={{ base: "1fr", lg: "300px 1fr" }} gap={4} h="calc(100vh - 200px)">
+                <GridItem>
+                  <Box h="full" overflowY="auto">
+                    <RouteDirections onRouteSelect={setSelectedRouteId} selectedRouteId={selectedRouteId} />
+                  </Box>
+                </GridItem>
+                <GridItem>
+                  <Box h="full" overflowY="auto" bg="white" borderRadius="md" border="1px" borderColor="gray.200" p={4}>
+                    <RouteSchedule routeId={selectedRouteId} />
+                  </Box>
+                </GridItem>
+              </Grid>
             </TabPanel>
           </TabPanels>
         </Tabs>

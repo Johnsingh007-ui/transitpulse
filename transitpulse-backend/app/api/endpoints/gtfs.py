@@ -12,7 +12,9 @@ from app.models.gtfs_static import (
     GTFSStop as GTFSStopModel, 
     GTFSStopTime, 
     GTFSTrip,
-    GTFSShape
+    GTFSShape,
+    GTFSCalendar,
+    GTFSCalendarDate
 )
 from app.websocket.manager import manager
 from app.schemas.gtfs import GTFSRoute, GTFSRouteResponse, GTFSStop as GTFSStopSchema, GTFSStopResponse
@@ -653,3 +655,218 @@ async def debug_trips(db: AsyncSession = Depends(get_db)):
         }
     except Exception as e:
         return {"error": str(e), "type": type(e).__name__}
+
+
+@router.get("/routes/{route_id}/schedule")
+async def get_route_schedule(
+    route_id: str,
+    date: str = Query(..., description="Date in YYYY-MM-DD format"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get schedule data for a specific route on a specific date
+    Returns both scheduled times and real-time comparison data when available
+    """
+    try:
+        from datetime import datetime, date as date_type
+        import calendar
+        
+        # Parse the date
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        day_of_week = target_date.weekday()  # 0=Monday, 6=Sunday
+        
+        # Map Python weekday to GTFS calendar format
+        day_names = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        gtfs_day = day_names[day_of_week]
+        
+        # Get active services for this date
+        service_query = select(GTFSCalendar).where(
+            GTFSCalendar.start_date <= target_date,
+            GTFSCalendar.end_date >= target_date,
+            getattr(GTFSCalendar, gtfs_day) == 1
+        )
+        
+        service_result = await db.execute(service_query)
+        active_services = [row.service_id for row in service_result.scalars().all()]
+        
+        # Check for calendar date exceptions
+        exception_query = select(GTFSCalendarDate).where(
+            GTFSCalendarDate.date == target_date
+        )
+        exception_result = await db.execute(exception_query)
+        exceptions = exception_result.scalars().all()
+        
+        # Apply exceptions (1=added, 2=removed)
+        for exception in exceptions:
+            if exception.exception_type == 1:  # Service added
+                if exception.service_id not in active_services:
+                    active_services.append(exception.service_id)
+            elif exception.exception_type == 2:  # Service removed
+                if exception.service_id in active_services:
+                    active_services.remove(exception.service_id)
+        
+        if not active_services:
+            return {
+                "route_id": route_id,
+                "date": date,
+                "trips": [],
+                "message": "No service scheduled for this date"
+            }
+        
+        # Get trips for this route and services
+        trips_query = select(GTFSTrip).where(
+            GTFSTrip.route_id == route_id,
+            GTFSTrip.service_id.in_(active_services)
+        ).order_by(GTFSTrip.trip_id)
+        
+        trips_result = await db.execute(trips_query)
+        trips = trips_result.scalars().all()
+        
+        if not trips:
+            return {
+                "route_id": route_id,
+                "date": date,
+                "trips": [],
+                "message": "No trips found for this route on this date"
+            }
+        
+        # Get stop times for these trips
+        trip_ids = [trip.trip_id for trip in trips]
+        stop_times_query = select(GTFSStopTime, GTFSStopModel).join(
+            GTFSStopModel, GTFSStopTime.stop_id == GTFSStopModel.stop_id
+        ).where(
+            GTFSStopTime.trip_id.in_(trip_ids)
+        ).order_by(GTFSStopTime.trip_id, GTFSStopTime.stop_sequence)
+        
+        stop_times_result = await db.execute(stop_times_query)
+        stop_times_data = stop_times_result.all()
+        
+        # Organize data by trip
+        trip_data = {}
+        for trip in trips:
+            trip_data[trip.trip_id] = {
+                "trip_id": trip.trip_id,
+                "route_id": trip.route_id,
+                "direction_id": trip.direction_id,
+                "headsign": trip.trip_headsign,
+                "service_id": trip.service_id,
+                "stops": []
+            }
+        
+        # Add stop times to trips
+        for stop_time, stop in stop_times_data:
+            if stop_time.trip_id in trip_data:
+                trip_data[stop_time.trip_id]["stops"].append({
+                    "stop_id": stop_time.stop_id,
+                    "stop_name": stop.stop_name if stop else "Unknown Stop",
+                    "stop_sequence": stop_time.stop_sequence,
+                    "arrival_time": stop_time.arrival_time.strftime("%H:%M:%S") if stop_time.arrival_time else None,
+                    "departure_time": stop_time.departure_time.strftime("%H:%M:%S") if stop_time.departure_time else None,
+                    "stop_headsign": stop_time.stop_headsign,
+                    "pickup_type": stop_time.pickup_type,
+                    "drop_off_type": stop_time.drop_off_type,
+                    # For future real-time comparison
+                    "actual_arrival": None,
+                    "actual_departure": None,
+                    "delay": None,
+                    "status": "scheduled"
+                })
+        
+        # Convert to list and sort by first departure time
+        schedule_data = list(trip_data.values())
+        
+        # Sort trips by their first stop departure time
+        def get_first_departure(trip):
+            if trip["stops"]:
+                first_stop = min(trip["stops"], key=lambda x: x["stop_sequence"])
+                return first_stop.get("departure_time", "23:59:59")
+            return "23:59:59"
+        
+        schedule_data.sort(key=get_first_departure)
+        
+        return {
+            "route_id": route_id,
+            "date": date,
+            "day_of_week": gtfs_day,
+            "active_services": active_services,
+            "total_trips": len(schedule_data),
+            "trips": schedule_data
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid date format: {e}")
+    except Exception as e:
+        logger.error(f"Error fetching schedule for route {route_id} on {date}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch schedule: {str(e)}")
+
+
+@router.get("/routes/{route_id}/schedule/summary")
+async def get_route_schedule_summary(
+    route_id: str,
+    date: str = Query(..., description="Date in YYYY-MM-DD format"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a summary of schedule data for a route on a specific date
+    """
+    try:
+        # Get the full schedule data
+        schedule_data = await get_route_schedule(route_id, date, db)
+        
+        if "trips" not in schedule_data or not schedule_data["trips"]:
+            return {
+                "route_id": route_id,
+                "date": date,
+                "summary": {
+                    "total_trips": 0,
+                    "direction_0_trips": 0,
+                    "direction_1_trips": 0,
+                    "first_departure": None,
+                    "last_departure": None,
+                    "service_span": None
+                }
+            }
+        
+        trips = schedule_data["trips"]
+        
+        # Calculate summary statistics
+        direction_0_count = len([t for t in trips if t["direction_id"] == 0])
+        direction_1_count = len([t for t in trips if t["direction_id"] == 1])
+        
+        # Find first and last departures
+        all_departures = []
+        for trip in trips:
+            if trip["stops"]:
+                first_stop = min(trip["stops"], key=lambda x: x["stop_sequence"])
+                if first_stop.get("departure_time"):
+                    all_departures.append(first_stop["departure_time"])
+        
+        all_departures.sort()
+        first_departure = all_departures[0] if all_departures else None
+        last_departure = all_departures[-1] if all_departures else None
+        
+        # Calculate service span
+        service_span = None
+        if first_departure and last_departure:
+            from datetime import datetime
+            first_dt = datetime.strptime(first_departure, "%H:%M:%S")
+            last_dt = datetime.strptime(last_departure, "%H:%M:%S")
+            span = last_dt - first_dt
+            service_span = f"{span.seconds // 3600}h {(span.seconds % 3600) // 60}m"
+        
+        return {
+            "route_id": route_id,
+            "date": date,
+            "summary": {
+                "total_trips": len(trips),
+                "direction_0_trips": direction_0_count,
+                "direction_1_trips": direction_1_count,
+                "first_departure": first_departure,
+                "last_departure": last_departure,
+                "service_span": service_span
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating schedule summary for route {route_id} on {date}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate schedule summary: {str(e)}")
