@@ -1,0 +1,82 @@
+{
+  "hash": "9ee011ce",
+  "configHash": "8e167444",
+  "lockfileHash": "e3b0c442",
+  "browserHash": "a19f0151",
+  "optimized": {
+    "@chakra-ui/icons": {
+      "src": "../../transitpulse-frontend/node_modules/@chakra-ui/icons/dist/esm/index.mjs",
+      "file": "@chakra-ui_icons.js",
+      "fileHash": "f5b0830d",
+      "needsInterop": false
+    },
+    "@chakra-ui/react": {
+      "src": "../../transitpulse-frontend/node_modules/@chakra-ui/react/dist/esm/index.mjs",
+      "file": "@chakra-ui_react.js",
+      "fileHash": "2b52111c",
+      "needsInterop": false
+    },
+    "axios": {
+      "src": "../../transitpulse-frontend/node_modules/axios/index.js",
+      "file": "axios.js",
+      "fileHash": "8062b436",
+      "needsInterop": false
+    },
+    "leaflet": {
+      "src": "../../transitpulse-frontend/node_modules/leaflet/dist/leaflet-src.js",
+      "file": "leaflet.js",
+      "fileHash": "b3bd5155",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../transitpulse-frontend/node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "6284e75e",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../transitpulse-frontend/node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "c3f6771d",
+      "needsInterop": true
+    },
+    "react-icons/fa": {
+      "src": "../../transitpulse-frontend/node_modules/react-icons/fa/index.mjs",
+      "file": "react-icons_fa.js",
+      "fileHash": "c7cf1bb1",
+      "needsInterop": false
+    },
+    "react-icons/fi": {
+      "src": "../../transitpulse-frontend/node_modules/react-icons/fi/index.mjs",
+      "file": "react-icons_fi.js",
+      "fileHash": "8e28144b",
+      "needsInterop": false
+    },
+    "react-leaflet": {
+      "src": "../../transitpulse-frontend/node_modules/react-leaflet/lib/index.js",
+      "file": "react-leaflet.js",
+      "fileHash": "2bc67cb2",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-ZLULRKKO": {
+      "file": "chunk-ZLULRKKO.js"
+    },
+    "chunk-ZCP3DJ7A": {
+      "file": "chunk-ZCP3DJ7A.js"
+    },
+    "chunk-XDEFQ6WI": {
+      "file": "chunk-XDEFQ6WI.js"
+    },
+    "chunk-BJEWATHP": {
+      "file": "chunk-BJEWATHP.js"
+    },
+    "chunk-6J3INB3U": {
+      "file": "chunk-6J3INB3U.js"
+    },
+    "chunk-V4OQ3NZ2": {
+      "file": "chunk-V4OQ3NZ2.js"
+    }
+  }
+}

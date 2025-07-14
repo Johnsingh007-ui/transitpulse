@@ -6,6 +6,33 @@ A comprehensive real-time transit monitoring and analytics platform designed for
 
 **✅ Currently loaded with real Golden Gate Transit GTFS data!**
 
+## 🚀 PRODUCTION READY - Quick Start
+
+### Automated Startup (Recommended)
+```bash
+git clone https://github.com/Johnsingh007-ui/transitpulse.git
+cd transitpulse
+./start_transitpulse_production.sh
+```
+
+### Access Points
+- **Frontend**: http://localhost:3002
+- **Backend API**: http://localhost:9002
+- **API Documentation**: http://localhost:9002/docs
+
+## 📊 Current System Status
+✅ **Fully Operational** (Last updated: July 14, 2025)
+- 28 active vehicles tracked in real-time
+- 12 GTFS routes available (101, 114, 130, 132, 150, 154, 164, 172, 172X, 580, 580X, 704)
+- Real-time Golden Gate Transit data integration
+- Route selection and vehicle status working correctly
+- Production-ready with clean console output
+
+## 🔧 Port Configuration
+- **Frontend (Vite + React)**: Port 3002
+- **Backend (FastAPI)**: Port 9002
+- **Database (PostgreSQL)**: Port 5432
+
 ## ✨ Features for Transit Agencies
 
 - 🚌 **Fleet Monitoring**: Real-time tracking of your agency's vehicles with live position updates

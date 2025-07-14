@@ -63,18 +63,21 @@ const RouteLadder: React.FC<RouteLadderProps> = ({ routeId, direction = 'inbound
   const [timepoints, setTimepoints] = useState<StopTimepoint[]>([]);
   const [selectedDirection, setSelectedDirection] = useState(direction);
   const [showTimepointsOnly, setShowTimepointsOnly] = useState(true);
-  const [selectedRoute, setSelectedRoute] = useState(routeId || '101');
+  const [selectedRoute, setSelectedRoute] = useState(routeId || '101'); // Force 101 as default
   const [routes, setRoutes] = useState<Route[]>([]);
   const [vehicles, setVehicles] = useState<RealTimeVehicle[]>([]);
+  const [hasUserSelectedRoute, setHasUserSelectedRoute] = useState(!!routeId); // Track if user has manually selected
 
   // Fetch routes from API
   const fetchRoutes = async () => {
     try {
-      const response = await fetch(`http://localhost:9002/api/v1/routes`);
+      const response = await fetch(`/api/v1/routes`); // Use relative URL for proxy
       if (response.ok) {
         const data = await response.json();
         // API returns {routes: [...], status: "success", message: "..."}
         setRoutes(data.routes || []);
+      } else {
+        console.error('Routes fetch failed:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching routes:', error);
@@ -85,11 +88,14 @@ const RouteLadder: React.FC<RouteLadderProps> = ({ routeId, direction = 'inbound
   // Fetch vehicles from API
   const fetchVehicles = async () => {
     try {
-      const response = await fetch(`http://localhost:9002/api/v1/vehicles/realtime`);
+      const response = await fetch(`/api/v1/vehicles/realtime`); // Use relative URL for proxy
       if (response.ok) {
         const data = await response.json();
         // API returns {status: "success", message: "...", data: [...vehicles...]}
-        setVehicles(data.data || []);
+        const vehicleData = data.data || [];
+        setVehicles(vehicleData);
+      } else {
+        console.error('Vehicles fetch failed:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching vehicles:', error);
@@ -106,18 +112,33 @@ const RouteLadder: React.FC<RouteLadderProps> = ({ routeId, direction = 'inbound
     return () => clearInterval(interval);
   }, []);
 
+  // Auto-select first route with vehicles when data loads (only if user hasn't manually selected)
+  useEffect(() => {
+    if (routes.length > 0 && vehicles.length > 0 && !hasUserSelectedRoute) {
+      // Find the first route that has active vehicles
+      const routeWithVehicles = routes.find(route => 
+        vehicles.some(vehicle => vehicle.route_id === route.route_id)
+      );
+      
+      if (routeWithVehicles && routeWithVehicles.route_id !== selectedRoute) {
+        setSelectedRoute(routeWithVehicles.route_id);
+      }
+    }
+  }, [routes, vehicles, hasUserSelectedRoute, selectedRoute]);
+
   useEffect(() => {
     // Create timepoints from real vehicle data
     if (vehicles.length > 0) {
-      const targetRoutes = selectedRoute ? [selectedRoute] : ['101', '130', '150', '580'];
+      // Filter vehicles for the selected route only
+      const routeVehicles = vehicles.filter(v => v.route_id === selectedRoute);
+      
       const newTimepoints: StopTimepoint[] = [];
       
-      targetRoutes.forEach(rId => {
-        const routeVehicles = vehicles.filter(v => v.route_id === rId);
-        
-        routeVehicles.slice(0, 8).forEach((vehicle, index) => {
+      if (routeVehicles.length > 0) {
+        // Create timepoints for each vehicle on this route
+        routeVehicles.slice(0, 10).forEach((vehicle, index) => {
           const timeSlot = new Date();
-          timeSlot.setMinutes(timeSlot.getMinutes() + (index * 12));
+          timeSlot.setMinutes(timeSlot.getMinutes() + (index * 8)); // 8 minute intervals
           
           const scheduledTime = timeSlot.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
@@ -129,8 +150,8 @@ const RouteLadder: React.FC<RouteLadderProps> = ({ routeId, direction = 'inbound
           const crowding = getVehicleCrowding(vehicle.occupancy_status);
           
           newTimepoints.push({
-            stopId: vehicle.vehicle_id,
-            stopName: `${vehicle.headsign || `Route ${rId} Stop`}`,
+            stopId: `stop_${vehicle.vehicle_id}`,
+            stopName: vehicle.headsign || `${vehicle.direction_name || 'Route'} ${selectedRoute}`,
             scheduledTime,
             vehicles: [{
               id: vehicle.vehicle_id,
@@ -141,11 +162,27 @@ const RouteLadder: React.FC<RouteLadderProps> = ({ routeId, direction = 'inbound
             }]
           });
         });
-      });
+      } else {
+        // If no vehicles for this route, show a placeholder
+        newTimepoints.push({
+          stopId: 'no_vehicles',
+          stopName: `No active vehicles on Route ${selectedRoute}`,
+          scheduledTime: '--:--',
+          vehicles: []
+        });
+      }
       
       setTimepoints(newTimepoints);
+    } else {
+      // No vehicles data yet
+      setTimepoints([{
+        stopId: 'loading',
+        stopName: 'Loading vehicle data...',
+        scheduledTime: '--:--',
+        vehicles: []
+      }]);
     }
-  }, [vehicles, routeId, selectedRoute]);
+  }, [vehicles, selectedRoute]); // Add selectedRoute as dependency
 
   const getVehicleStatus = (status: number): 'on-time' | 'early' | 'late' | 'layover' | 'approaching' => {
     switch (status) {
@@ -192,6 +229,19 @@ const RouteLadder: React.FC<RouteLadderProps> = ({ routeId, direction = 'inbound
 
   return (
     <VStack spacing={4} align="stretch">
+      {/* Debug Info */}
+      <Card bg="gray.50" size="sm">
+        <CardBody>
+          <HStack spacing={6} fontSize="xs" color="gray.600">
+            <Text>Routes: {routes.length}</Text>
+            <Text>Vehicles: {vehicles.length}</Text>
+            <Text>Selected: {selectedRoute}</Text>
+            <Text>Vehicles on Route: {vehicles.filter(v => v.route_id === selectedRoute).length}</Text>
+            <Text>Timepoints: {timepoints.length}</Text>
+          </HStack>
+        </CardBody>
+      </Card>
+
       {/* Route Selection and Filters */}
       <Card>
         <CardHeader pb={2}>
@@ -202,7 +252,10 @@ const RouteLadder: React.FC<RouteLadderProps> = ({ routeId, direction = 'inbound
             <HStack spacing={4} w="full">
               <Box flex={1}>
                 <Text fontSize="sm" mb={1} fontWeight="medium">Route</Text>
-                <Select value={selectedRoute} onChange={(e) => setSelectedRoute(e.target.value)}>
+                <Select value={selectedRoute} onChange={(e) => {
+                  setSelectedRoute(e.target.value);
+                  setHasUserSelectedRoute(true); // Mark that user has manually selected
+                }}>
                   {routes.length > 0 ? (
                     routes.map(route => (
                       <option key={route.route_id} value={route.route_id}>
