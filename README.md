@@ -1,8 +1,8 @@
 # TransitPulse 🚌
 
-> **🎉 SYSTEM FULLY OPERATIONAL** - All services launched successfully! Frontend dashboard live at http://localhost:3002
+> **🎉 SYSTEM READY** - Real-time transit monitoring platform with live Golden Gate Transit data
 
-A real-time transit monitoring and analytics platform designed for **transit agencies** to track their own fleet operations, generate performance reports, and monitor service quality. Currently focused on **Golden Gate Transit** with easy onboarding for additional agencies.
+A comprehensive real-time transit monitoring and analytics platform designed for **transit agencies** to track their own fleet operations, generate performance reports, and monitor service quality. Currently loaded with **Golden Gate Transit** real data with easy onboarding for additional agencies.
 
 **✅ Currently loaded with real Golden Gate Transit GTFS data!**
 
@@ -21,33 +21,76 @@ A real-time transit monitoring and analytics platform designed for **transit age
 - 🔧 **On-Demand Updates**: Trigger immediate data updates via API for schedule changes
 - 📈 **Agency Reports**: Generate performance reports and analytics for your operations
 
-## Prerequisites
+## 🚀 Quick Start (Complete Setup)
 
-- Docker and Docker Compose
-- Python 3.11+
-- Node.js 18+
-- Git
+### Option 1: One-Command Startup (Recommended)
 
-## Quick Start
+```bash
+# From the root directory, start everything at once:
+cd /workspaces/transitpulse
+./start_complete.sh
+```
 
-### 1. Clone and Setup Database
+This will automatically:
+- Start the database (Docker)
+- Launch the backend API on port 9001
+- Launch the frontend on port 3000
+- Show you the access URLs
+
+### Option 2: Manual Setup
+
+#### 1. Start Database
 
 ```bash
 # Start PostgreSQL database using Docker Compose
 docker-compose up -d
-
-# Wait a few seconds for the database to be ready
 ```
 
-### 2. Setup Backend
+#### 2. Start Backend API
 
 ```bash
 cd transitpulse-backend
 
-# Install Python dependencies
+# Install Python dependencies (if not already done)
 pip install -r requirements.txt
 
-# Initialize database tables
+# Start the API server on port 9001
+python fastapi_port_9001.py
+```
+
+#### 3. Start Frontend
+
+```bash
+cd transitpulse-frontend
+
+# Install Node.js dependencies (if not already done)
+npm install
+
+# Start the development server
+npm run dev -- --host 0.0.0.0 --port 3000
+```
+
+## 🌐 Accessing the Application
+
+### Local Development
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:9001
+- **API Documentation**: http://localhost:9001/docs
+
+### GitHub Codespaces / Remote Development
+1. Open the **PORTS** tab in VS Code
+2. Make sure ports **3000** and **9001** are set to **Public**
+3. Use the forwarded URLs provided in the PORTS tab
+4. Example: `https://your-codespace-name-3000.app.github.dev`
+
+### Troubleshooting Access Issues
+If you get a 404 error:
+1. Verify both servers are running (check terminal output)
+2. In VS Code PORTS tab, ensure visibility is set to "Public"
+3. Try the alternative network URLs shown in the terminal output
+4. For Codespaces: Use the exact forwarded URL from the PORTS tab
+
+## Prerequisites
 python init_db.py
 
 # Load sample GTFS data (Golden Gate Transit already loaded)
