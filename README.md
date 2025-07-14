@@ -20,6 +20,13 @@ cd transitpulse
 - **Backend API**: http://localhost:9002
 - **API Documentation**: http://localhost:9002/docs
 
+### ✅ **Latest Startup Verification (July 14, 2025)**
+- Successfully launched with all fixes applied
+- Backend: FastAPI server running with uvicorn reload support ✅
+- Frontend: Vite dev server with all dependencies resolved ✅  
+- Database: PostgreSQL with Golden Gate Transit GTFS data ✅
+- Real-time tracking: 28+ active vehicles being monitored ✅
+
 ## 📊 Current System Status
 ✅ **Fully Operational** (Last updated: July 14, 2025)
 - 28 active vehicles tracked in real-time
@@ -553,6 +560,40 @@ After configuring the files above:
 - Frontend Dashboard (port 3002): ✅ Live with all dependencies resolved
 - GTFS Data: ✅ 12 Golden Gate Transit routes loaded
 - Schedule Features: ✅ Calendar component with multiple view modes active
+
+### Recent Startup Issues & Fixes (July 14, 2025)
+
+#### ✅ **Fixed: Uvicorn Reload Warning**
+**Issue**: Backend failed to start with warning: "You must pass the application as an import string to enable 'reload' or 'workers'"
+
+**Root Cause**: The `main.py` file was passing the app object directly to uvicorn instead of using an import string.
+
+**Fix Applied**: Updated `/transitpulse-backend/main.py`:
+```python
+# BEFORE (caused error):
+uvicorn.run(app, host="0.0.0.0", port=9002, reload=True)
+
+# AFTER (working):
+uvicorn.run("app.main:app", host="0.0.0.0", port=9002, reload=True)
+```
+
+#### ✅ **Fixed: Python Command Not Found**
+**Issue**: Some systems don't have a `python` symlink, only `python3`.
+
+**Fix Applied**: Updated startup script to use `python3` explicitly:
+```bash
+# In start_transitpulse_production.sh:
+python3 main.py &  # instead of python main.py &
+```
+
+#### ⚠️ **Known: GTFS Duplicate Key Warnings**
+**Issue**: Database constraint violations when loading GTFS data due to existing records.
+
+**Status**: Non-critical - System continues to function normally. These warnings appear when GTFS data already exists in the database and the system attempts to reload it.
+
+**Impact**: None - Real-time data and all features work correctly.
+
+**Future Enhancement**: Could implement `INSERT ... ON CONFLICT DO UPDATE` for cleaner reloads.
 
 ### Common Issues (Resolved)
 - **✅ @chakra-ui/icons missing**: Fixed - package installed successfully

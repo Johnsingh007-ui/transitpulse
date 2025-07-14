@@ -43,7 +43,7 @@ fi
 # Start backend
 echo -e "${BLUE}Starting TransitPulse Backend (Port 9002)...${NC}"
 cd transitpulse-backend
-python main.py &
+python3 main.py &
 BACKEND_PID=$!
 cd ..
 
