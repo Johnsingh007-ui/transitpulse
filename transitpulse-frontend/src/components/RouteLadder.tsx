@@ -73,10 +73,12 @@ const RouteLadder: React.FC<RouteLadderProps> = ({ routeId, direction = 'inbound
       const response = await fetch(`http://localhost:9002/api/v1/routes`);
       if (response.ok) {
         const data = await response.json();
-        setRoutes(data);
+        // API returns {routes: [...], status: "success", message: "..."}
+        setRoutes(data.routes || []);
       }
     } catch (error) {
       console.error('Error fetching routes:', error);
+      setRoutes([]);
     }
   };
 
@@ -86,10 +88,12 @@ const RouteLadder: React.FC<RouteLadderProps> = ({ routeId, direction = 'inbound
       const response = await fetch(`http://localhost:9002/api/v1/vehicles/realtime`);
       if (response.ok) {
         const data = await response.json();
-        setVehicles(data);
+        // API returns {status: "success", message: "...", data: [...vehicles...]}
+        setVehicles(data.data || []);
       }
     } catch (error) {
       console.error('Error fetching vehicles:', error);
+      setVehicles([]);
     }
   };
 
