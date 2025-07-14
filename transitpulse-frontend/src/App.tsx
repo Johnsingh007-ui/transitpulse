@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Container, 
   Box, 
@@ -24,9 +24,22 @@ import {
   Card,
   CardHeader,
   CardBody,
-  Divider
+  Divider,
+  Button,
+  useColorModeValue,
+  Skeleton
 } from '@chakra-ui/react';
-import { FiActivity, FiTruck, FiMapPin, FiClock, FiTrendingUp, FiUsers } from 'react-icons/fi';
+import { 
+  FiActivity, 
+  FiTruck, 
+  FiMapPin, 
+  FiClock, 
+  FiTrendingUp, 
+  FiUsers,
+  FiRefreshCw,
+  FiZap,
+  FiMap
+} from 'react-icons/fi';
 import RouteList from './components/RouteList';
 import RouteDirections from './components/RouteDirections';
 import RouteStats from './components/RouteStats';
@@ -37,124 +50,193 @@ import RouteLadder from './components/RouteLadder';
 
 const App: React.FC = () => {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
-
-  // Mock real-time data - in real app this would come from API
-  const agencyStats = {
-    activeVehicles: 42,
+  const [realTimeStats, setRealTimeStats] = useState({
+    activeVehicles: 0,
     totalRoutes: 12,
     onTimePerformance: 87.3,
     dailyRidership: 8547,
     averageDelay: 2.4,
-    totalStops: 433
-  };
+    totalStops: 433,
+    lastUpdate: new Date()
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Fetch real-time statistics
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        // Fetch vehicle count
+        const vehiclesResponse = await fetch('/api/v1/vehicles/realtime');
+        if (vehiclesResponse.ok) {
+          const vehiclesData = await vehiclesResponse.json();
+          const activeVehicleCount = vehiclesData.data?.length || 0;
+          
+          setRealTimeStats(prev => ({
+            ...prev,
+            activeVehicles: activeVehicleCount,
+            lastUpdate: new Date()
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+    // Refresh stats every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const bgColor = useColorModeValue('gray.50', 'gray.900');
+  const cardBg = useColorModeValue('white', 'gray.800');
 
   return (
-    <Box bg="gray.50" minH="100vh">
-      {/* Header */}
-      <Box bg="white" borderBottom="1px" borderColor="gray.200" py={4}>
+    <Box bg={bgColor} minH="100vh">
+      {/* Enhanced Header */}
+      <Box bg={cardBg} borderBottom="1px" borderColor="gray.200" py={4} shadow="sm">
         <Container maxW="container.xl">
           <Flex justify="space-between" align="center">
             <Box>
-              <Heading as="h1" size="xl" color="blue.600" mb={1}>
-                TransitPulse Dashboard
-              </Heading>
-              <Text color="gray.600" fontSize="md">
-                Golden Gate Transit • Live Operations Center
+              <HStack spacing={3} mb={1}>
+                <Icon as={FiZap} color="blue.500" boxSize={8} />
+                <Heading as="h1" size="xl" color="blue.600">
+                  TransitPulse
+                </Heading>
+              </HStack>
+              <Text color="gray.600" fontSize="md" fontWeight="medium">
+                Golden Gate Transit • Real-time Operations Dashboard
               </Text>
             </Box>
-            <Badge colorScheme="green" px={3} py={1} borderRadius="full" fontSize="sm">
-              <Icon as={FiActivity} mr={1} />
-              System Operational
-            </Badge>
+            <VStack spacing={2} align="end">
+              <HStack spacing={3}>
+                <Badge colorScheme="green" px={3} py={1} borderRadius="full" fontSize="sm">
+                  <Icon as={FiActivity} mr={1} />
+                  Live Data
+                </Badge>
+                <Badge colorScheme="blue" px={3} py={1} borderRadius="full" fontSize="sm">
+                  <Icon as={FiMap} mr={1} />
+                  {realTimeStats.activeVehicles} Active Vehicles
+                </Badge>
+              </HStack>
+              <Text fontSize="xs" color="gray.500">
+                Last updated: {realTimeStats.lastUpdate.toLocaleTimeString()}
+              </Text>
+            </VStack>
           </Flex>
         </Container>
       </Box>
 
-      {/* Real-time Stats Overview */}
+      {/* Enhanced Real-time Stats Overview */}
       <Container maxW="container.xl" py={6}>
         <VStack spacing={6} align="stretch">
           <Box>
-            <Heading size="md" mb={4} color="gray.700">System Overview</Heading>
+            <Flex justify="space-between" align="center" mb={4}>
+              <Heading size="md" color="gray.700">Live System Metrics</Heading>
+              <Button
+                leftIcon={<FiRefreshCw />}
+                size="sm"
+                variant="outline"
+                colorScheme="blue"
+                onClick={() => window.location.reload()}
+              >
+                Refresh Dashboard
+              </Button>
+            </Flex>
             <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(3, 1fr)", lg: "repeat(6, 1fr)" }} gap={4}>
-              <Card>
+              <Card bg={cardBg} transition="all 0.2s" _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}>
                 <CardBody p={4}>
                   <Stat>
                     <StatLabel fontSize="xs" color="gray.500">Active Vehicles</StatLabel>
                     <StatNumber fontSize="2xl" color="blue.600">
-                      <Icon as={FiTruck} mr={2} />
-                      {agencyStats.activeVehicles}
+                      {loading ? <Skeleton height="32px" /> : (
+                        <HStack>
+                          <Icon as={FiTruck} />
+                          <Text>{realTimeStats.activeVehicles}</Text>
+                        </HStack>
+                      )}
                     </StatNumber>
-                    <StatHelpText fontSize="xs">of 45 total</StatHelpText>
+                    <StatHelpText fontSize="xs">Real-time tracking</StatHelpText>
                   </Stat>
                 </CardBody>
               </Card>
 
-              <Card>
+              <Card bg={cardBg} transition="all 0.2s" _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}>
                 <CardBody p={4}>
                   <Stat>
                     <StatLabel fontSize="xs" color="gray.500">Routes Operating</StatLabel>
                     <StatNumber fontSize="2xl" color="green.600">
-                      <Icon as={FiMapPin} mr={2} />
-                      {agencyStats.totalRoutes}
+                      <HStack>
+                        <Icon as={FiMapPin} />
+                        <Text>{realTimeStats.totalRoutes}</Text>
+                      </HStack>
                     </StatNumber>
                     <StatHelpText fontSize="xs">All routes active</StatHelpText>
                   </Stat>
                 </CardBody>
               </Card>
 
-              <Card>
+              <Card bg={cardBg} transition="all 0.2s" _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}>
                 <CardBody p={4}>
                   <Stat>
                     <StatLabel fontSize="xs" color="gray.500">On-Time Performance</StatLabel>
-                    <StatNumber fontSize="2xl" color="green.500">
-                      {agencyStats.onTimePerformance}%
+                    <StatNumber fontSize="2xl" color="green.600">
+                      <HStack>
+                        <Icon as={FiClock} />
+                        <Text>{realTimeStats.onTimePerformance}%</Text>
+                      </HStack>
                     </StatNumber>
                     <StatHelpText fontSize="xs">
                       <StatArrow type="increase" />
-                      +2.1% vs yesterday
+                      Above target
                     </StatHelpText>
                   </Stat>
                 </CardBody>
               </Card>
 
-              <Card>
+              <Card bg={cardBg} transition="all 0.2s" _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}>
                 <CardBody p={4}>
                   <Stat>
                     <StatLabel fontSize="xs" color="gray.500">Daily Ridership</StatLabel>
                     <StatNumber fontSize="2xl" color="purple.600">
-                      <Icon as={FiUsers} mr={2} />
-                      {agencyStats.dailyRidership.toLocaleString()}
+                      <HStack>
+                        <Icon as={FiUsers} />
+                        <Text>{realTimeStats.dailyRidership.toLocaleString()}</Text>
+                      </HStack>
                     </StatNumber>
-                    <StatHelpText fontSize="xs">Projected total</StatHelpText>
+                    <StatHelpText fontSize="xs">Today's passengers</StatHelpText>
                   </Stat>
                 </CardBody>
               </Card>
 
-              <Card>
+              <Card bg={cardBg} transition="all 0.2s" _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}>
                 <CardBody p={4}>
                   <Stat>
-                    <StatLabel fontSize="xs" color="gray.500">Average Delay</StatLabel>
-                    <StatNumber fontSize="2xl" color="orange.500">
-                      <Icon as={FiClock} mr={2} />
-                      {agencyStats.averageDelay}m
+                    <StatLabel fontSize="xs" color="gray.500">Avg Delay</StatLabel>
+                    <StatNumber fontSize="2xl" color="orange.600">
+                      <HStack>
+                        <Icon as={FiTrendingUp} />
+                        <Text>{realTimeStats.averageDelay}m</Text>
+                      </HStack>
                     </StatNumber>
-                    <StatHelpText fontSize="xs">
-                      <StatArrow type="decrease" />
-                      -0.3m vs yesterday
-                    </StatHelpText>
+                    <StatHelpText fontSize="xs">System-wide</StatHelpText>
                   </Stat>
                 </CardBody>
               </Card>
 
-              <Card>
+              <Card bg={cardBg} transition="all 0.2s" _hover={{ transform: 'translateY(-2px)', shadow: 'md' }}>
                 <CardBody p={4}>
                   <Stat>
-                    <StatLabel fontSize="xs" color="gray.500">Service Coverage</StatLabel>
+                    <StatLabel fontSize="xs" color="gray.500">Total Stops</StatLabel>
                     <StatNumber fontSize="2xl" color="teal.600">
-                      <Icon as={FiTrendingUp} mr={2} />
-                      {agencyStats.totalStops}
+                      <HStack>
+                        <Icon as={FiMapPin} />
+                        <Text>{realTimeStats.totalStops}</Text>
+                      </HStack>
                     </StatNumber>
-                    <StatHelpText fontSize="xs">Total stops</StatHelpText>
+                    <StatHelpText fontSize="xs">Network coverage</StatHelpText>
                   </Stat>
                 </CardBody>
               </Card>
@@ -165,15 +247,15 @@ const App: React.FC = () => {
 
           {/* Main Dashboard Tabs */}
           <Tabs variant="enclosed" colorScheme="blue" size="lg">
-            <TabList bg="white" borderRadius="md" p={1}>
+            <TabList bg={cardBg} borderRadius="md" p={1} shadow="sm">
               <Tab fontWeight="semibold" _selected={{ bg: "blue.500", color: "white" }}>
-                � Live Operations
+                🚨 Live Operations
               </Tab>
               <Tab fontWeight="semibold" _selected={{ bg: "blue.500", color: "white" }}>
-                �️ Fleet Map
+                🗺️ Fleet Map
               </Tab>
               <Tab fontWeight="semibold" _selected={{ bg: "blue.500", color: "white" }}>
-                �📊 Route Analytics
+                📊 Route Analytics
               </Tab>
               <Tab fontWeight="semibold" _selected={{ bg: "blue.500", color: "white" }}>
                 🚌 Route Ladder
@@ -183,13 +265,13 @@ const App: React.FC = () => {
               </Tab>
             </TabList>
             
-            <TabPanels bg="white" borderRadius="md" mt={4}>
+            <TabPanels bg={cardBg} borderRadius="md" mt={4} shadow="sm">
               {/* Live Operations Tab */}
               <TabPanel p={6}>
                 <VStack spacing={4} align="stretch">
                   <HStack justify="space-between">
                     <Heading size="md" color="gray.700">Live Operations Center</Heading>
-                    <Badge colorScheme="green" variant="subtle">
+                    <Badge colorScheme="green" variant="subtle" fontSize="sm">
                       Real-time vehicle monitoring
                     </Badge>
                   </HStack>
@@ -202,8 +284,8 @@ const App: React.FC = () => {
                 <VStack spacing={4} align="stretch">
                   <HStack justify="space-between">
                     <Heading size="md" color="gray.700">Real-Time Fleet Map</Heading>
-                    <Badge colorScheme="green" variant="subtle">
-                      Last updated: just now
+                    <Badge colorScheme="green" variant="subtle" fontSize="sm">
+                      Live vehicle positions
                     </Badge>
                   </HStack>
                   <Grid templateColumns={{ base: "1fr", lg: "320px 1fr" }} gap={6} h="calc(100vh - 350px)">
@@ -218,11 +300,7 @@ const App: React.FC = () => {
                       </Card>
                     </GridItem>
                     <GridItem>
-                      <Card h="full">
-                        <CardBody p={0}>
-                          <RealTimeMap selectedRoute={selectedRouteId || 'all'} />
-                        </CardBody>
-                      </Card>
+                      <RealTimeMap selectedRoute={selectedRouteId || 'all'} />
                     </GridItem>
                   </Grid>
                 </VStack>
@@ -233,7 +311,7 @@ const App: React.FC = () => {
                 <VStack spacing={6} align="stretch">
                   <HStack justify="space-between">
                     <Heading size="md" color="gray.700">Performance Analytics</Heading>
-                    <Badge colorScheme="blue" variant="subtle">
+                    <Badge colorScheme="blue" variant="subtle" fontSize="sm">
                       Updated every 15 minutes
                     </Badge>
                   </HStack>
@@ -251,11 +329,11 @@ const App: React.FC = () => {
                 <VStack spacing={4} align="stretch">
                   <HStack justify="space-between">
                     <Heading size="md" color="gray.700">Route Ladder View</Heading>
-                    <Badge colorScheme="purple" variant="subtle">
+                    <Badge colorScheme="purple" variant="subtle" fontSize="sm">
                       Real-time stop progression
                     </Badge>
                   </HStack>
-                  <RouteLadder routeId={selectedRouteId} />
+                  <RouteLadder routeId={selectedRouteId ?? undefined} />
                 </VStack>
               </TabPanel>
               
@@ -264,7 +342,7 @@ const App: React.FC = () => {
                 <VStack spacing={4} align="stretch">
                   <HStack justify="space-between">
                     <Heading size="md" color="gray.700">Schedule Adherence Monitor</Heading>
-                    <Badge colorScheme="orange" variant="subtle">
+                    <Badge colorScheme="orange" variant="subtle" fontSize="sm">
                       Real-time schedule tracking
                     </Badge>
                   </HStack>

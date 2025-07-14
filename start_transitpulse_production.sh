@@ -1,6 +1,6 @@
 #!/bin/bash
 # TransitPulse Complete Startup Script
-# This script starts both backend and frontend servers
+# This script starts database, backend and frontend servers
 
 echo "🚀 Starting TransitPulse System..."
 echo "=================================="
@@ -28,6 +28,34 @@ check_port() {
     fi
 }
 
+# Function to check if Docker is running
+check_docker() {
+    if ! docker info >/dev/null 2>&1; then
+        echo -e "${RED}Error: Docker is not running. Please start Docker first.${NC}"
+        exit 1
+    fi
+}
+
+# Function to wait for database to be ready
+wait_for_database() {
+    echo -e "${YELLOW}Waiting for database to be ready...${NC}"
+    local max_attempts=30
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        if docker exec transitpulse-db-1 pg_isready -U transitpulse_user -d transitpulse_db >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ Database is ready${NC}"
+            return 0
+        fi
+        echo -e "${YELLOW}Database not ready yet... (attempt $attempt/$max_attempts)${NC}"
+        sleep 2
+        ((attempt++))
+    done
+    
+    echo -e "${RED}❌ Database failed to become ready after $max_attempts attempts${NC}"
+    return 1
+}
+
 # Kill existing processes on our ports
 echo -e "${YELLOW}Checking for existing processes...${NC}"
 if check_port 9002; then
@@ -38,6 +66,19 @@ fi
 if check_port 3002; then
     echo -e "${YELLOW}Killing existing process on port 3002${NC}"
     lsof -ti:3002 | xargs kill -9 2>/dev/null || true
+fi
+
+# Check Docker availability
+check_docker
+
+# Start database first
+echo -e "${BLUE}Starting PostgreSQL Database...${NC}"
+docker-compose up -d
+
+# Wait for database to be ready
+if ! wait_for_database; then
+    echo -e "${RED}❌ Database startup failed${NC}"
+    exit 1
 fi
 
 # Start backend
@@ -96,7 +137,7 @@ echo ""
 echo -e "${YELLOW}Press Ctrl+C to stop all services${NC}"
 
 # Wait for user interrupt
-trap 'echo -e "\n${YELLOW}Shutting down TransitPulse...${NC}"; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true; exit 0' INT
+trap 'echo -e "\n${YELLOW}Shutting down TransitPulse...${NC}"; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true; echo -e "${YELLOW}Stopping database...${NC}"; docker-compose down; echo -e "${GREEN}✅ All services stopped${NC}"; exit 0' INT
 
 # Keep script running
 wait
