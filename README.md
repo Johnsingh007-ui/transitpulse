@@ -6,13 +6,32 @@ A comprehensive real-time transit monitoring and analytics platform designed for
 
 **✅ Currently loaded with real Golden Gate Transit GTFS data!**
 
-## 🚀 PRODUCTION READY - Quick Start
+## 🚀 STARTUP OPTIONS
 
-### Automated Startup (Recommended)
+### 🔧 First Time Setup (Required Once)
 ```bash
+# Clone and setup everything automatically
 git clone https://github.com/Johnsingh007-ui/transitpulse.git
 cd transitpulse
-./start_transitpulse_production.sh
+
+# Fix any dependency or configuration issues
+./fix_requirements.sh
+
+# Complete setup and startup (runs all checks, installs dependencies)
+./setup_and_start.sh
+```
+
+### ⚡ Daily Development (After Setup)
+```bash
+# Quick startup for daily development
+./dev_start.sh
+```
+
+### 🛠️ Troubleshooting
+```bash
+# If you encounter any startup issues:
+./fix_requirements.sh  # Fixes dependencies, ports, database, configuration
+./dev_start.sh         # Then start normally
 ```
 
 ### Access Points
@@ -20,12 +39,13 @@ cd transitpulse
 - **Backend API**: http://localhost:9002
 - **API Documentation**: http://localhost:9002/docs
 
-### ✅ **Latest Startup Verification (July 14, 2025)**
-- Successfully launched with all fixes applied
-- Backend: FastAPI server running with uvicorn reload support ✅
-- Frontend: Vite dev server with all dependencies resolved ✅  
-- Database: PostgreSQL with Golden Gate Transit GTFS data ✅
-- Real-time tracking: 28+ active vehicles being monitored ✅
+### ✅ **Fixed Common Issues (July 15, 2025)**
+- ✅ Python virtual environment setup and dependencies
+- ✅ Node.js package installation and version conflicts
+- ✅ Database connection and initialization
+- ✅ Port conflicts and process cleanup
+- ✅ Environment configuration files
+- ✅ Backend/Frontend integration and CORS
 
 ## 📊 Current System Status
 ✅ **Fully Operational** (Last updated: July 14, 2025)
