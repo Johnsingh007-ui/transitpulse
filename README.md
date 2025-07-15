@@ -43,6 +43,9 @@ cd transitpulse
 ## ✨ Features for Transit Agencies
 
 - 🚌 **Fleet Monitoring**: Real-time tracking of your agency's vehicles with live position updates
+- 📋 **Collapsible Trip Details**: Expandable vehicle cards showing complete stop lists with scheduled vs actual arrival times
+- 🚦 **Real-time Predictions**: Live arrival times with delay indicators using 511 Bay Area Trip Updates API
+- 🔄 **Traffic-Aware Updates**: Real-time adjustments for delays and traffic conditions
 - 🧭 **Route Management**: View routes by direction with headsigns and trip counts
 - 📊 **Performance Analytics**: Route statistics and network performance metrics for your agency  
 - 🗺️ **Route Details**: Detailed route information with stop listings and service patterns
@@ -292,6 +295,10 @@ python -m data_ingestion.gtfs_static_loader --gtfs-zip path/to/gtfs.zip
 **🎨 Frontend Features Active:**
 - **Route Management Dashboard** - Browse all routes with official colors
 - **Enhanced Route Schedule Component** - Calendar interface with historical data analysis (starting from yesterday)
+- **Live Operations Monitor** - Card-based vehicle display with expandable trip details **🆕**
+- **Collapsible Trip Details** - Expandable vehicle cards showing complete stop schedules with real-time predictions **🆕**
+- **Real-time Arrival Predictions** - Live stop-time predictions with delay indicators using 511 Bay Area API **🆕**
+- **Traffic Condition Monitoring** - Real-time traffic impact display with color-coded delay indicators **🆕**
 - **On-Time Performance Analysis** - Historical performance tracking with detailed trip-by-trip analysis
 - **User-Friendly Date Selection** - Clear date formatting without confusing "Today/Tomorrow" labels
 - **Direction Filtering** - View routes by Inbound/Outbound direction with visual indicators
@@ -347,6 +354,9 @@ The backend provides several REST API endpoints:
 - `GET /api/v1/stops?route_id={route_id}` - Get stops for a specific route
 - `GET /api/v1/vehicles/realtime` - Get live vehicle positions with direction information
 - `GET /api/v1/vehicles/realtime?route_id={route_id}` - Filter vehicles by route
+- `GET /api/v1/trips/{trip_id}/details-with-updates` - Get comprehensive trip details with real-time GTFS-RT predictions **🆕**
+- `GET /api/v1/trips/vehicle/{vehicle_id}/details` - Get trip details for a specific vehicle with stop times **🆕**
+- `GET /api/v1/traffic/conditions` - Get current traffic conditions and delays **🆕**
 - `POST /api/v1/data/update-static` - Trigger manual GTFS data update
 - `GET /api/v1/data/status` - Get current data update status
 - `GET /api/v1/test` - Health check endpoint
@@ -369,9 +379,12 @@ TransitPulse automatically fetches fresh data from official transit agency feeds
 - **Status**: ✅ **24 active vehicles currently tracked**
 - **Endpoint**: `GET /api/v1/vehicles/realtime?route_id=101`
 
-### Trip Updates (Future Release)
+### Trip Updates ✅ **NOW IMPLEMENTED**
 - **Source**: https://realtime.goldengate.org/gtfsrealtime/TripUpdates
 - **Protocol**: GTFS-Realtime protobuf format
+- **Integration**: 511 Bay Area API for enhanced real-time predictions
+- **Features**: Stop-level arrival predictions with delay calculations
+- **Status**: ✅ **Active - Real-time predictions displayed in collapsible trip details**
 
 ### Supported Transit Agencies
 - **Golden Gate Transit** (GG) - Bus routes connecting Marin and Sonoma counties
