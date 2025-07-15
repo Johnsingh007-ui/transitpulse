@@ -25,3 +25,7 @@ build/
 
 # Zip files
 *.zip
+node_modules/
+venv/
+*.pid
+.vite/

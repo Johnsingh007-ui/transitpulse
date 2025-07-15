@@ -33,11 +33,13 @@ interface StopUpdate {
   stop_code?: string;
   scheduled_arrival: string;
   scheduled_departure: string;
-  predicted_arrival?: number;
-  predicted_departure?: number;
+  predicted_arrival?: string;
+  predicted_departure?: string;
+  actual_arrival?: string;
+  actual_departure?: string;
   arrival_delay?: number;
   departure_delay?: number;
-  status: 'scheduled' | 'updated';
+  status: 'scheduled' | 'updated' | 'passed' | 'current' | 'upcoming';
 }
 
 interface TripInfo {
@@ -53,12 +55,9 @@ interface TripInfo {
 
 interface VehicleInfo {
   vehicle_id: string;
-  latitude?: number;
-  longitude?: number;
-  bearing?: number;
-  speed?: number;
-  occupancy_status?: string;
-  direction_name?: string;
+  current_stop_id?: string;
+  current_stop_sequence?: number;
+  current_status?: number;
   last_updated?: string;
 }
 
@@ -170,11 +169,6 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
     return timeString;
   };
 
-  const formatPredictedTime = (timestamp?: number) => {
-    if (!timestamp) return null;
-    return new Date(timestamp * 1000).toLocaleTimeString();
-  };
-
   const getDelayColor = (delay?: number) => {
     if (!delay) return 'gray';
     if (delay > 300) return 'red'; // > 5 minutes late
@@ -203,6 +197,41 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
 
     const config = occupancyMap[occupancy || ''] || { color: 'gray', label: 'Unknown' };
     return <Badge colorScheme={config.color} size="sm">{config.label}</Badge>;
+  };
+
+  // Helper functions for status display
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case 'passed':
+      case 'completed':
+        return 'green';
+      case 'current':
+        return 'blue';
+      case 'upcoming':
+        return 'gray';
+      case 'updated':
+        return 'orange';
+      default:
+        return 'gray';
+    }
+  };
+
+  const getStatusText = (status: string): string => {
+    switch (status) {
+      case 'passed':
+      case 'completed':
+        return 'Passed';
+      case 'current':
+        return 'Current';
+      case 'upcoming':
+        return 'Upcoming';
+      case 'updated':
+        return 'Updated';
+      case 'scheduled':
+        return 'Scheduled';
+      default:
+        return status;
+    }
   };
 
   return (
@@ -321,8 +350,9 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
                           <Th>#</Th>
                           <Th>Stop Name</Th>
                           <Th>Scheduled</Th>
-                          <Th>Predicted</Th>
+                          <Th>Actual/Predicted</Th>
                           <Th>Delay</Th>
+                          <Th>Status</Th>
                         </Tr>
                       </Thead>
                       <Tbody>
@@ -349,10 +379,25 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
                               </Text>
                             </Td>
                             <Td>
-                              {stop.predicted_arrival ? (
-                                <Text fontSize="sm" fontWeight="medium">
-                                  {formatPredictedTime(stop.predicted_arrival)}
-                                </Text>
+                              {/* Show actual time for passed stops, predicted for upcoming */}
+                              {stop.status === 'passed' && stop.actual_arrival ? (
+                                <VStack align="start" spacing={0}>
+                                  <Text fontSize="sm" fontWeight="medium" color="green.600">
+                                    {stop.actual_arrival}
+                                  </Text>
+                                  <Text fontSize="xs" color={subtextColor}>
+                                    Actual
+                                  </Text>
+                                </VStack>
+                              ) : stop.predicted_arrival ? (
+                                <VStack align="start" spacing={0}>
+                                  <Text fontSize="sm" fontWeight="medium" color="blue.600">
+                                    {stop.predicted_arrival}
+                                  </Text>
+                                  <Text fontSize="xs" color={subtextColor}>
+                                    Predicted
+                                  </Text>
+                                </VStack>
                               ) : (
                                 <Text fontSize="sm" color={subtextColor}>
                                   No prediction
@@ -370,8 +415,19 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
                                   </Badge>
                                 </Tooltip>
                               ) : (
-                                <Text fontSize="sm" color={subtextColor}>-</Text>
+                                <Text fontSize="sm" color={subtextColor}>
+                                  -
+                                </Text>
                               )}
+                            </Td>
+                            <Td>
+                              <Badge
+                                colorScheme={getStatusColor(stop.status)}
+                                size="sm"
+                                variant={stop.status === 'current' ? 'solid' : 'subtle'}
+                              >
+                                {getStatusText(stop.status)}
+                              </Badge>
                             </Td>
                           </Tr>
                         ))}
