@@ -88,6 +88,8 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
   const borderColor = useColorModeValue('gray.200', 'gray.600');
   const textColor = useColorModeValue('gray.800', 'white');
   const subtextColor = useColorModeValue('gray.600', 'gray.400');
+  const infoBoxBgColor = useColorModeValue('blue.50', 'blue.900');
+  const hoverBgColor = useColorModeValue('gray.100', 'gray.700');
 
   const fetchTripDetails = async () => {
     if (!isOpen) return;
@@ -212,7 +214,7 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
         justifyContent="space-between"
         rightIcon={isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
         color={textColor}
-        _hover={{ bg: useColorModeValue('gray.100', 'gray.700') }}
+        _hover={{ bg: hoverBgColor }}
       >
         <HStack>
           <Text fontWeight="medium">Vehicle {vehicleId}</Text>
@@ -390,7 +392,7 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
 
               {/* Real-time Update Info */}
               {tripDetails.real_time_updates && (
-                <Box p={3} bg={useColorModeValue('blue.50', 'blue.900')} borderRadius="md">
+                <Box p={3} bg={infoBoxBgColor} borderRadius="md">
                   <HStack>
                     <Icon as={WarningIcon} color="blue.500" />
                     <Text fontSize="sm" color="blue.600">

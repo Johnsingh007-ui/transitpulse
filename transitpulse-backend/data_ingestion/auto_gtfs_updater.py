@@ -22,6 +22,7 @@ from app.schemas.gtfs_static import (
     GTFSRouteBase, GTFSStopBase, GTFSTripBase, GTFSStopTimeBase, 
     GTFSCalendarBase, GTFSCalendarDateBase, GTFSShapeBase
 )
+from app.crud.vehicle_crud import bulk_create_or_update_vehicle_positions
 from data_ingestion.gtfs_static_loader import _load_csv_to_db
 
 # Configure logging
@@ -146,11 +147,18 @@ class AutoGTFSUpdater:
                         for entity in feed.entity:
                             if entity.HasField('vehicle'):
                                 vehicle = entity.vehicle
-                                if vehicle.HasField('position'):
+                                
+                                # Only include active vehicles with valid position and trip data
+                                if (vehicle.HasField('position') and 
+                                    vehicle.HasField('trip') and 
+                                    vehicle.trip.route_id and 
+                                    vehicle.trip.trip_id and
+                                    self._is_vehicle_active(vehicle)):
+                                    
                                     vehicles.append({
                                         "vehicle_id": vehicle.vehicle.id if vehicle.HasField('vehicle') else entity.id,
-                                        "route_id": vehicle.trip.route_id if vehicle.HasField('trip') else None,
-                                        "trip_id": vehicle.trip.trip_id if vehicle.HasField('trip') else None,
+                                        "route_id": vehicle.trip.route_id,
+                                        "trip_id": vehicle.trip.trip_id,
                                         "latitude": vehicle.position.latitude,
                                         "longitude": vehicle.position.longitude,
                                         "bearing": vehicle.position.bearing if vehicle.position.HasField('bearing') else None,
@@ -187,7 +195,13 @@ class AutoGTFSUpdater:
             for entity in data["entity"]:
                 if "vehicle" in entity:
                     vehicle = entity["vehicle"]
-                    if "position" in vehicle:
+                    
+                    # Only include active vehicles with valid position and trip data
+                    if (self._is_json_vehicle_active(vehicle) and
+                        "position" in vehicle and 
+                        vehicle.get("trip", {}).get("route_id") and 
+                        vehicle.get("trip", {}).get("trip_id")):
+                        
                         vehicles.append({
                             "vehicle_id": vehicle.get("vehicle", {}).get("id", "unknown"),
                             "route_id": vehicle.get("trip", {}).get("route_id"),
@@ -202,14 +216,133 @@ class AutoGTFSUpdater:
         
         return vehicles
     
+    def _is_vehicle_active(self, vehicle) -> bool:
+        """
+        Determine if a vehicle is actively in service.
+        
+        Args:
+            vehicle: GTFS-RT vehicle entity
+            
+        Returns:
+            bool: True if vehicle is actively in service
+        """
+        # Check if vehicle has current_status field
+        if vehicle.HasField('current_status'):
+            # GTFS-RT VehicleStatus enum values:
+            # INCOMING_AT = 0  (vehicle is approaching a stop)
+            # STOPPED_AT = 1   (vehicle is stopped at a stop)  
+            # IN_TRANSIT_TO = 2 (vehicle is in transit to a stop)
+            active_statuses = [0, 1, 2]  # All these indicate active service
+            
+            if vehicle.current_status not in active_statuses:
+                return False
+        
+        # Check if position timestamp is recent (within last 10 minutes)
+        if vehicle.HasField('timestamp'):
+            current_time = datetime.now().timestamp()
+            vehicle_time = vehicle.timestamp
+            
+            # If vehicle data is older than 10 minutes, consider it inactive
+            if current_time - vehicle_time > 600:  # 600 seconds = 10 minutes
+                return False
+        
+        # Check if vehicle has valid position coordinates
+        if vehicle.HasField('position'):
+            lat = vehicle.position.latitude
+            lon = vehicle.position.longitude
+            
+            # Basic validation for valid coordinates
+            if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                return False
+                
+            # Check if coordinates are not at (0,0) which often indicates invalid data
+            if lat == 0.0 and lon == 0.0:
+                return False
+        
+        return True
+    
+    def _is_json_vehicle_active(self, vehicle: Dict) -> bool:
+        """
+        Determine if a JSON vehicle is actively in service.
+        
+        Args:
+            vehicle: JSON vehicle data from 511 API
+            
+        Returns:
+            bool: True if vehicle is actively in service
+        """
+        # Check if vehicle has valid position coordinates
+        if "position" in vehicle:
+            position = vehicle["position"]
+            lat = position.get("latitude")
+            lon = position.get("longitude")
+            
+            # Basic validation for valid coordinates
+            if lat is None or lon is None:
+                return False
+                
+            if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                return False
+                
+            # Check if coordinates are not at (0,0) which often indicates invalid data
+            if lat == 0.0 and lon == 0.0:
+                return False
+        
+        # Check vehicle status if available
+        current_status = vehicle.get("current_status")
+        if current_status is not None:
+            # Same active status values as GTFS-RT
+            active_statuses = [0, 1, 2]  # INCOMING_AT, STOPPED_AT, IN_TRANSIT_TO
+            if current_status not in active_statuses:
+                return False
+        
+        # Check timestamp if available
+        timestamp = vehicle.get("timestamp")
+        if timestamp is not None:
+            current_time = datetime.now().timestamp()
+            # If vehicle data is older than 10 minutes, consider it inactive
+            if current_time - timestamp > 600:  # 600 seconds = 10 minutes
+                return False
+        
+        return True
+
     async def update_vehicle_positions(self, agency_key: str = "golden_gate"):
-        """Update vehicle positions in memory for WebSocket broadcasting."""
+        """Update vehicle positions in memory and database for WebSocket broadcasting."""
         vehicles = await self.fetch_realtime_vehicles(agency_key)
         if vehicles:
+            # Store in memory for immediate access
             self.vehicle_positions[agency_key] = {
                 "timestamp": datetime.now(),
                 "vehicles": vehicles
             }
+            
+            # Save to database for persistence
+            try:
+                async with SessionLocal() as db:
+                    # Convert vehicle data to format expected by database
+                    vehicle_positions_data = []
+                    for vehicle in vehicles:
+                        position_data = {
+                            'vehicle_id': vehicle.get('vehicle_id'),
+                            'route_id': vehicle.get('route_id'),
+                            'latitude': vehicle.get('latitude'),
+                            'longitude': vehicle.get('longitude'),
+                            'speed': vehicle.get('speed'),
+                            'bearing': vehicle.get('bearing'),
+                            'trip_id': vehicle.get('trip_id'),
+                            'timestamp': datetime.utcnow()
+                        }
+                        # Only add vehicles with valid required data
+                        if all([position_data['vehicle_id'], position_data['route_id'], 
+                               position_data['latitude'], position_data['longitude']]):
+                            vehicle_positions_data.append(position_data)
+                    
+                    if vehicle_positions_data:
+                        await bulk_create_or_update_vehicle_positions(db, vehicle_positions_data)
+                        logger.info(f"Saved {len(vehicle_positions_data)} vehicle positions to database for {agency_key}")
+                        
+            except Exception as e:
+                logger.error(f"Error saving vehicle positions to database: {e}")
             
             # TODO: Broadcast to WebSocket clients
             logger.info(f"Updated {len(vehicles)} vehicle positions for {agency_key}")

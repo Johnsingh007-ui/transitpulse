@@ -9,21 +9,21 @@ from datetime import datetime
 
 router = APIRouter()
 
-@router.get("/vehicles/live", response_model=List[LiveVehiclePosition])
+@router.get("/live", response_model=List[LiveVehiclePosition])
 async def read_live_vehicles(db: AsyncSession = Depends(get_db)):
     """
     Retrieves all live vehicle positions currently stored in the database.
     
     Returns:
         List[LiveVehiclePosition]: A list of all live vehicle positions
-        
-    Raises:
-        HTTPException: 404 if no live vehicle data is found
     """
-    vehicles = await vehicle_crud.get_all_live_vehicle_positions(db)
-    if not vehicles:
-        raise HTTPException(status_code=404, detail="No live vehicle data found.")
-    return vehicles
+    try:
+        vehicles = await vehicle_crud.get_all_live_vehicle_positions(db)
+        print(f"DEBUG: Found {len(vehicles) if vehicles else 0} vehicles in database")
+        return vehicles or []
+    except Exception as e:
+        print(f"DEBUG: Error getting vehicles: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving vehicles: {str(e)}")
 
 @router.get("/realtime")
 async def get_realtime_vehicles(
