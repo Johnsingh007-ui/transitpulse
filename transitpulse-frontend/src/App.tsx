@@ -27,6 +27,8 @@ import {
   Divider,
   Button,
   useColorModeValue,
+  useColorMode,
+  IconButton,
   Skeleton
 } from '@chakra-ui/react';
 import { 
@@ -38,7 +40,9 @@ import {
   FiUsers,
   FiRefreshCw,
   FiZap,
-  FiMap
+  FiMap,
+  FiMoon,
+  FiSun
 } from 'react-icons/fi';
 import RouteList from './components/RouteList';
 import RouteDirections from './components/RouteDirections';
@@ -49,6 +53,7 @@ import LiveOperations from './components/LiveOperations';
 import RouteLadder from './components/RouteLadder';
 
 const App: React.FC = () => {
+  const { colorMode, toggleColorMode } = useColorMode();
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [realTimeStats, setRealTimeStats] = useState({
     activeVehicles: 0,
@@ -112,6 +117,13 @@ const App: React.FC = () => {
             </Box>
             <VStack spacing={2} align="end">
               <HStack spacing={3}>
+                <IconButton
+                  aria-label="Toggle dark mode"
+                  icon={colorMode === 'light' ? <FiMoon /> : <FiSun />}
+                  onClick={toggleColorMode}
+                  variant="ghost"
+                  size="md"
+                />
                 <Badge colorScheme="green" px={3} py={1} borderRadius="full" fontSize="sm">
                   <Icon as={FiActivity} mr={1} />
                   Live Data

@@ -38,6 +38,7 @@ import {
   FiSearch,
   FiRefreshCw
 } from 'react-icons/fi';
+import VehicleTripDetails from './VehicleTripDetails';
 
 interface Vehicle {
   vehicle_id: string;
@@ -86,6 +87,7 @@ const LiveOperations: React.FC = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [expandedVehicles, setExpandedVehicles] = useState<Set<string>>(new Set());
 
   // Fetch real data from API
   const fetchRoutes = async () => {
@@ -272,6 +274,16 @@ const LiveOperations: React.FC = () => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const toggleVehicleExpansion = (vehicleId: string) => {
+    const newExpanded = new Set(expandedVehicles);
+    if (newExpanded.has(vehicleId)) {
+      newExpanded.delete(vehicleId);
+    } else {
+      newExpanded.add(vehicleId);
+    }
+    setExpandedVehicles(newExpanded);
+  };
+
   const filteredVehicles = Array.isArray(vehicles) ? vehicles.filter(vehicle => {
     const matchesRoute = selectedRoute === 'all' || vehicle.route_id === selectedRoute;
     const matchesSearch = vehicle.vehicle_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -407,102 +419,112 @@ const LiveOperations: React.FC = () => {
           </HStack>
         </CardHeader>
         <CardBody pt={0}>
-          <Box overflowX="auto">              <Table variant="simple" size="sm">
-                <Thead>
-                  <Tr>
-                    <Th>Vehicle ID</Th>
-                    <Th>Status</Th>
-                    <Th>Route</Th>
-                    <Th>Trip ID</Th>
-                    <Th>Location</Th>
-                    <Th>Occupancy</Th>
-                    <Th>Last Update</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {filteredVehicles.map((vehicle) => (
-                    <Tr key={vehicle.vehicle_id} _hover={{ bg: 'gray.50' }}>
-                      <Td fontWeight="medium">{vehicle.vehicle_id}</Td>
-                      <Td>
+          <VStack spacing={3} align="stretch">
+            {filteredVehicles.map((vehicle) => (
+              <Box key={vehicle.vehicle_id}>
+                <Box
+                  p={4}
+                  border="1px"
+                  borderColor="gray.200"
+                  borderRadius="md"
+                  bg="white"
+                  _hover={{ bg: 'gray.50' }}
+                >
+                  <HStack justify="space-between" align="center">
+                    <HStack spacing={4} flex={1}>
+                      <VStack align="start" spacing={0}>
+                        <Text fontWeight="bold" fontSize="lg">Vehicle {vehicle.vehicle_id}</Text>
+                        <Text fontSize="sm" color="gray.600">Trip: {vehicle.trip_id}</Text>
+                      </VStack>
+                      
+                      <Badge 
+                        colorScheme={getStatusColor(vehicle.status)}
+                        variant="subtle"
+                        size="md"
+                      >
+                        <HStack spacing={1}>
+                          <Icon as={getStatusIcon(vehicle.status)} />
+                          <Text>{getStatusFromCurrentStatus(vehicle.status)}</Text>
+                        </HStack>
+                      </Badge>
+                      
+                      <VStack align="start" spacing={0}>
+                        <Text fontWeight="medium">Route {vehicle.route_id}</Text>
+                        <Text fontSize="sm" color="gray.600">{vehicle.direction_name || 'Unknown Direction'}</Text>
+                      </VStack>
+                      
+                      <VStack align="start" spacing={0}>
+                        <Text fontSize="sm">
+                          {vehicle.latitude && vehicle.longitude ? (
+                            `${vehicle.latitude.toFixed(4)}, ${vehicle.longitude.toFixed(4)}`
+                          ) : (
+                            'No location'
+                          )}
+                        </Text>
+                        {vehicle.speed && (
+                          <Text fontSize="xs" color="gray.500">
+                            {Math.round(vehicle.speed)} km/h
+                          </Text>
+                        )}
+                      </VStack>
+                      
+                      {(() => {
+                        const occupancyLevel = getOccupancyLevel(vehicle.occupancy_status);
+                        return (
+                          <Tooltip 
+                            label={vehicle.occupancy_status ? 
+                              `Real occupancy: ${getOccupancyDisplay(occupancyLevel)}` : 
+                              `Estimated occupancy: ${getOccupancyDisplay(occupancyLevel)} (based on time of day)`
+                            }
+                            placement="top"
+                          >
+                            <Badge 
+                              colorScheme={getOccupancyColor(occupancyLevel)}
+                              variant="subtle"
+                              cursor="pointer"
+                            >
+                              <HStack spacing={1}>
+                                <Icon as={FiTruck} />
+                                <Text>{getOccupancyDisplay(occupancyLevel)}</Text>
+                              </HStack>
+                            </Badge>
+                          </Tooltip>
+                        );
+                      })()}
+                      
+                      <VStack align="end" spacing={0}>
                         <Badge 
-                          colorScheme={getStatusColor(vehicle.status)}
+                          colorScheme={formatTimestamp(vehicle.timestamp) === 'Live' ? 'green' : 'gray'} 
                           variant="subtle"
                         >
-                          <HStack spacing={1}>
-                            <Icon as={getStatusIcon(vehicle.status)} boxSize={3} />
-                            <Text>
-                              {getStatusFromCurrentStatus(vehicle.status)}
-                            </Text>
-                          </HStack>
+                          {formatTimestamp(vehicle.timestamp)}
                         </Badge>
-                      </Td>
-                      <Td fontWeight="medium">{vehicle.route_id}</Td>
-                      <Td fontFamily="mono" fontSize="sm" color="gray.600">{vehicle.trip_id}</Td>
-                      <Td fontSize="sm">
-                        {vehicle.latitude && vehicle.longitude ? (
-                          <Text>
-                            {vehicle.latitude.toFixed(4)}, {vehicle.longitude.toFixed(4)}
-                            {vehicle.speed && (
-                              <Text fontSize="xs" color="gray.500">
-                                {Math.round(vehicle.speed)} km/h
-                              </Text>
-                            )}
-                          </Text>
-                        ) : (
-                          <Text color="gray.400">No location</Text>
-                        )}
-                      </Td>
-                      <Td>
-                        {(() => {
-                          const occupancyLevel = getOccupancyLevel(vehicle.occupancy_status);
-                          return (
-                            <Tooltip 
-                              label={vehicle.occupancy_status ? 
-                                `Real occupancy: ${getOccupancyDisplay(occupancyLevel)}` : 
-                                `Estimated occupancy: ${getOccupancyDisplay(occupancyLevel)} (based on time of day)`
-                              }
-                              placement="top"
-                            >
-                              <Badge 
-                                colorScheme={getOccupancyColor(occupancyLevel)}
-                                variant="subtle"
-                                size="sm"
-                                cursor="pointer"
-                              >
-                                <HStack spacing={1}>
-                                  <Icon as={FiTruck} boxSize={3} />
-                                  <Text fontSize="xs">
-                                    {getOccupancyDisplay(occupancyLevel)}
-                                  </Text>
-                                </HStack>
-                              </Badge>
-                            </Tooltip>
-                          );
-                        })()}
-                      </Td>
-                      <Td fontSize="sm">
-                        <VStack align="start" spacing={0}>
-                          <Badge 
-                            colorScheme={formatTimestamp(vehicle.timestamp) === 'Live' ? 'green' : 'gray'} 
-                            variant="subtle"
-                            size="sm"
-                          >
-                            {formatTimestamp(vehicle.timestamp)}
-                          </Badge>
-                          <Text fontSize="xs" color="gray.500">
-                            {new Date(vehicle.timestamp).toLocaleTimeString([], { 
-                              hour: '2-digit', 
-                              minute: '2-digit',
-                              second: '2-digit'
-                            })}
-                          </Text>
-                        </VStack>
-                      </Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-          </Box>
+                        <Text fontSize="xs" color="gray.500">
+                          {new Date(vehicle.timestamp).toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })}
+                        </Text>
+                      </VStack>
+                    </HStack>
+                  </HStack>
+                </Box>
+                
+                <VehicleTripDetails
+                  vehicleId={vehicle.vehicle_id}
+                  isOpen={expandedVehicles.has(vehicle.vehicle_id)}
+                  onToggle={() => toggleVehicleExpansion(vehicle.vehicle_id)}
+                />
+              </Box>
+            ))}
+            
+            {filteredVehicles.length === 0 && !loading && (
+              <Box textAlign="center" py={8}>
+                <Text color="gray.500">No vehicles match the current filters</Text>
+              </Box>
+            )}
+          </VStack>
         </CardBody>
       </Card>
 

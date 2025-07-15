@@ -104,6 +104,11 @@ async def test_endpoint():
 try:
     app.include_router(gtfs_router.router, prefix="/api/v1")
     app.include_router(shapes_router, prefix="/api/v1", tags=["shapes"])
+    
+    # Import and include traffic router
+    from .api.endpoints.traffic import router as traffic_router
+    app.include_router(traffic_router, prefix="/api/v1")
+    
     # app.include_router(gtfs_rt_router.router, prefix="/api/v1", tags=["gtfs-rt"])
     print("✅ Successfully registered routers", file=sys.stderr)
 except Exception as e:

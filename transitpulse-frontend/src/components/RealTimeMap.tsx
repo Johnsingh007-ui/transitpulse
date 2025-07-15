@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { 
@@ -12,9 +12,10 @@ import {
   Card,
   CardBody,
   IconButton,
-  Tooltip
+  Tooltip,
+  useColorMode
 } from '@chakra-ui/react';
-import { FiRefreshCw } from 'react-icons/fi';
+import { FiRefreshCw, FiNavigation } from 'react-icons/fi';
 
 // Fix default markers and improve icon loading
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -23,6 +24,71 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
+
+// Custom vehicle icon that shows direction based on route direction
+const createVehicleIcon = (bearing: number = 0, status: number = 2, route_id?: string, direction_name?: string) => {
+  const getStatusColor = (status: number): string => {
+    switch (status) {
+      case 0: return '#f59e0b'; // INCOMING_AT - yellow
+      case 1: return '#10b981'; // STOPPED_AT - green  
+      case 2: return '#3b82f6'; // IN_TRANSIT_TO - blue
+      default: return '#6b7280'; // unknown - gray
+    }
+  };
+
+  const color = getStatusColor(status);
+  
+  // Determine arrow direction based on available data
+  let arrowDirection = 'right'; // default
+  
+  if (direction_name) {
+    // Use direction_name from GTFS data
+    // "Outbound" typically means away from city center (right arrow)
+    // "Inbound" typically means toward city center (left arrow)
+    arrowDirection = direction_name.toLowerCase().includes('inbound') ? 'left' : 'right';
+  } else if (bearing !== undefined && bearing !== null) {
+    // Fallback to bearing if available
+    // Convert bearing to simple left/right
+    arrowDirection = (bearing >= 135 && bearing <= 315) ? 'left' : 'right';
+  }
+  
+  const svgIcon = `
+    <svg width="28" height="28" viewBox="0 0 28 28">
+      <!-- Circle background -->
+      <circle cx="14" cy="14" r="12" fill="${color}" stroke="white" stroke-width="2"/>
+      
+      <!-- Directional arrow -->
+      ${arrowDirection === 'right' ? 
+        '<polygon points="9,9 19,14 9,19" fill="white" stroke="none"/>' :
+        '<polygon points="19,9 9,14 19,19" fill="white" stroke="none"/>'
+      }
+      
+      <!-- Route number -->
+      ${route_id ? `<text x="14" y="7" text-anchor="middle" fill="white" font-size="7" font-weight="bold">${route_id}</text>` : ''}
+    </svg>
+  `;
+
+  return L.divIcon({
+    html: svgIcon,
+    className: 'custom-vehicle-icon',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -14],
+  });
+};
+
+// Add custom CSS for vehicle icons
+const vehicleIconStyle = `
+  .custom-vehicle-icon {
+    border: none !important;
+    background: transparent !important;
+  }
+  .custom-vehicle-icon svg {
+    display: block;
+    margin: 0;
+    border-radius: 50%;
+  }
+`;
 
 interface RealTimeVehicle {
   vehicle_id: string;
@@ -47,11 +113,17 @@ interface RealTimeMapProps {
 }
 
 const RealTimeMap: React.FC<RealTimeMapProps> = ({ selectedRoute }) => {
+  const { colorMode } = useColorMode();
   const [vehicles, setVehicles] = useState<RealTimeVehicle[]>([]);
+  const [previousVehicles, setPreviousVehicles] = useState<RealTimeVehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [refreshing, setRefreshing] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
+
+  // Color mode styles
+  const bg = colorMode === 'dark' ? 'gray.800' : 'white';
+  const borderColor = colorMode === 'dark' ? 'gray.600' : 'gray.200';
 
   const fetchVehicles = async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
@@ -60,6 +132,8 @@ const RealTimeMap: React.FC<RealTimeMapProps> = ({ selectedRoute }) => {
       const response = await fetch('/api/v1/vehicles/realtime');
       if (response.ok) {
         const data = await response.json();
+        // Store previous positions for animation
+        setPreviousVehicles(vehicles);
         // API returns {status: "success", message: "...", data: [...vehicles...]}
         setVehicles(data.data || []);
         setLastUpdate(new Date());
@@ -147,34 +221,6 @@ const RealTimeMap: React.FC<RealTimeMapProps> = ({ selectedRoute }) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const createVehicleIcon = (status: number) => {
-    const color = getStatusColor(status);
-    
-    return L.divIcon({
-      html: `
-        <div style="
-          background-color: ${color};
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          border: 2px solid white;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 12px;
-          color: white;
-          font-weight: bold;
-        ">
-          🚌
-        </div>
-      `,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-      className: 'vehicle-marker'
-    });
-  };
-
   const filteredVehicles = selectedRoute && selectedRoute !== 'all' 
     ? (Array.isArray(vehicles) ? vehicles.filter(v => v.route_id === selectedRoute) : [])
     : (Array.isArray(vehicles) ? vehicles : []);
@@ -219,18 +265,22 @@ const RealTimeMap: React.FC<RealTimeMapProps> = ({ selectedRoute }) => {
   return (
     <Card>
       <CardBody p={0} position="relative">
-        {/* Enhanced control panel */}
+        {/* Custom CSS for vehicle icons */}
+        <style>{vehicleIconStyle}</style>
+        
+        {/* Enhanced control panel with dark mode support */}
         <Box 
           position="absolute" 
           top={2} 
           right={2} 
           zIndex={1000} 
-          bg="white" 
+          bg={colorMode === 'dark' ? 'gray.800' : 'white'}
+          color={colorMode === 'dark' ? 'white' : 'gray.800'}
           p={3} 
           borderRadius="md" 
           shadow="lg"
           border="1px"
-          borderColor="gray.200"
+          borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.200'}
         >
           <VStack spacing={2} align="start">
             <HStack spacing={2}>
@@ -265,17 +315,20 @@ const RealTimeMap: React.FC<RealTimeMapProps> = ({ selectedRoute }) => {
           style={{ height: '500px', width: '100%', borderRadius: '0.375rem' }}
           ref={mapRef}
         >
+          {/* Reliable tile layer */}
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             maxZoom={18}
+            crossOrigin=""
           />
           
+          {/* Enhanced vehicle markers with direction arrows */}
           {validVehicles.map((vehicle) => (
             <Marker
               key={vehicle.vehicle_id}
               position={[vehicle.latitude, vehicle.longitude]}
-              icon={createVehicleIcon(vehicle.status)}
+              icon={createVehicleIcon(vehicle.bearing || 0, vehicle.status, vehicle.route_id, vehicle.direction_name)}
             >
               <Popup maxWidth={300}>
                 <VStack align="start" spacing={3} minW="250px">
@@ -302,6 +355,23 @@ const RealTimeMap: React.FC<RealTimeMapProps> = ({ selectedRoute }) => {
                         {getStatusText(vehicle.status)}
                       </Badge>
                     </HStack>
+                    
+                    {vehicle.bearing && (
+                      <HStack justify="space-between" w="full">
+                        <Text fontSize="sm" fontWeight="medium">Heading:</Text>
+                        <HStack>
+                          <FiNavigation style={{ transform: `rotate(${vehicle.bearing}deg)` }} />
+                          <Text fontSize="sm">{vehicle.bearing}°</Text>
+                        </HStack>
+                      </HStack>
+                    )}
+                    
+                    {vehicle.speed && (
+                      <HStack justify="space-between" w="full">
+                        <Text fontSize="sm" fontWeight="medium">Speed:</Text>
+                        <Text fontSize="sm">{Math.round(vehicle.speed * 2.237)} mph</Text>
+                      </HStack>
+                    )}
                     
                     <HStack justify="space-between" w="full">
                       <Text fontSize="sm" fontWeight="medium">Direction:</Text>

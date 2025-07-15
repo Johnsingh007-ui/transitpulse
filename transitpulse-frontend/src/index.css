@@ -16,3 +16,37 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Custom vehicle icon styles for smooth animations */
+.custom-vehicle-icon {
+  transition: transform 0.5s ease-in-out;
+}
+
+.custom-vehicle-icon:hover {
+  transform: scale(1.1);
+}
+
+/* Smooth animations for vehicle movements */
+.leaflet-marker-icon {
+  transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+/* Dark mode specific styles */
+.chakra-ui-dark .leaflet-container {
+  background-color: #1A202C;
+}
+
+.chakra-ui-dark .leaflet-control-attribution {
+  background-color: rgba(45, 55, 72, 0.8);
+  color: #E2E8F0;
+}
+
+.chakra-ui-dark .leaflet-control-zoom a {
+  background-color: #2D3748;
+  color: #E2E8F0;
+  border-color: #4A5568;
+}
+
+.chakra-ui-dark .leaflet-control-zoom a:hover {
+  background-color: #4A5568;
+}
