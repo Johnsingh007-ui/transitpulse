@@ -12,6 +12,7 @@ from app.api.endpoints import gtfs as gtfs_router
 try:
     from app.api.endpoints import gtfs as gtfs_router
     from app.api.endpoints.shapes_router import router as shapes_router
+    from app.api.endpoints.analytics import router as analytics_router
     # from app.api.endpoints import gtfs_rt as gtfs_rt_router
 except ImportError as e:
     print("\n🚨 ERROR IMPORTING ROUTERS 🚨", file=sys.stderr)
@@ -108,6 +109,9 @@ try:
     
     from .api.endpoints.traffic import router as traffic_router
     app.include_router(traffic_router, prefix="/api/v1")
+    
+    from .api.endpoints.analytics import router as analytics_router
+    app.include_router(analytics_router, prefix="/api/v1", tags=["analytics"])
     
     print("✅ Successfully registered all API routers", file=sys.stderr)
 except Exception as e:
