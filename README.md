@@ -6,6 +6,15 @@ A comprehensive real-time transit monitoring and analytics platform designed for
 
 **✅ Currently loaded with real Golden Gate Transit GTFS data!**
 
+## ✨ Key Features
+- 🚌 **Real-time Vehicle Tracking**: Live position updates with 30-second refresh intervals
+- 📊 **Performance Analytics**: Route statistics, on-time performance, and KPI monitoring
+- 🗺️ **Interactive Maps**: Real-time fleet visualization with route overlays
+- 📋 **Trip Management**: Detailed stop-by-stop tracking with arrival predictions
+- 🚦 **Traffic-Aware Updates**: Integration with real-time traffic condition monitoring
+- 🔄 **Multi-Agency Support**: Easy onboarding process for new transit agencies
+- ♿ **Accessibility Tracking**: Wheelchair accessibility monitoring across fleet and stops
+
 ## Prerequisites
 
 ### Dependencies
@@ -33,7 +42,7 @@ Configure the backend environment variables:
    ```
 
 2. Update the `.env` file with your configuration:
-   - `DATABASE_URL`: URL for the PostgreSQL database
+   - `DATABASE_URL`: URL for the PostgreSQL database (default: `postgresql://transitpulse_user:transitpulse_pass@localhost:5432/transitpulse_db`)
    - `DB_HOST`: Host for the database (default: `localhost`)
    - `DB_PORT`: Port for the database (default: `5432`)
    - `API_PORT`: Port for the backend API (default: `9002`)
@@ -54,6 +63,10 @@ For development with manual control over each service:
 
 1. **Start the database:**
    ```bash
+   # For newer Docker installations
+   docker compose up -d
+   
+   # For older Docker installations (if above fails)
    docker-compose up -d
    ```
 
@@ -555,6 +568,9 @@ If dependencies are missing, reinstall:
 cd transitpulse-backend
 pip install -r requirements.txt
 
+# Additional database driver (if needed)
+pip install psycopg2-binary
+
 # Node.js dependencies  
 cd transitpulse-frontend
 npm install
@@ -586,12 +602,21 @@ uvicorn.run("app.main:app", host="0.0.0.0", port=9002, reload=True)
 **Solution**: Use `python3` explicitly in commands.
 
 #### Database Connection Issues
-- **Connection refused**: Ensure Docker is running and execute `docker-compose up -d`
+- **Connection refused**: Ensure Docker is running and execute:
+  ```bash
+  # For newer Docker installations
+  docker compose up -d
+  
+  # For older Docker installations  
+  docker-compose up -d
+  ```
 - **Authentication failed**: Check password in `.env` matches `docker-compose.yml`
 - **Tables not found**: Run `python init_db.py` to create database tables
+- **psycopg2 missing**: Install with `pip install psycopg2-binary`
 
 #### Frontend Build Issues
-- **Missing @chakra-ui/icons**: Fixed with `npm install @chakra-ui/icons`
+- **Missing @chakra-ui/icons**: Install with `npm install @chakra-ui/icons`
+- **TypeScript errors**: These are warnings that don't prevent development mode from running
 - **Build errors**: Clear cache and reinstall:
   ```bash
   rm -rf node_modules package-lock.json
