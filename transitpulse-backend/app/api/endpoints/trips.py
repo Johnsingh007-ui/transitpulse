@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 import logging
 import sys
 import os
+from geopy.distance import geodesic
+import math
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
@@ -41,8 +43,8 @@ async def get_trip_details_with_updates(
                 r.route_long_name,
                 r.route_color,
                 r.route_text_color
-            FROM trips t
-            JOIN routes r ON t.route_id = r.route_id
+            FROM gtfs_trips t
+            JOIN gtfs_routes r ON t.route_id = r.route_id
             WHERE t.trip_id = :trip_id
         """)
         
@@ -63,8 +65,8 @@ async def get_trip_details_with_updates(
                 s.stop_lat,
                 s.stop_lon,
                 s.stop_code
-            FROM stop_times st
-            JOIN stops s ON st.stop_id = s.stop_id
+            FROM gtfs_stop_times st
+            JOIN gtfs_stops s ON st.stop_id = s.stop_id
             WHERE st.trip_id = :trip_id
             ORDER BY st.stop_sequence
         """)
@@ -160,11 +162,10 @@ async def get_vehicle_trip_details(
                 lv.bearing,
                 lv.speed,
                 lv.occupancy_status,
-                lv.direction_name,
-                lv.last_updated
+                lv.timestamp
             FROM live_vehicle_positions lv
             WHERE lv.vehicle_id = :vehicle_id
-            ORDER BY lv.last_updated DESC
+            ORDER BY lv.timestamp DESC
             LIMIT 1
         """)
         
@@ -188,9 +189,22 @@ async def get_vehicle_trip_details(
             "bearing": vehicle_info.bearing,
             "speed": vehicle_info.speed,
             "occupancy_status": vehicle_info.occupancy_status,
-            "direction_name": vehicle_info.direction_name,
-            "last_updated": vehicle_info.last_updated.isoformat() if vehicle_info.last_updated else None
+            "direction_name": None,  # Not available in current schema
+            "last_updated": vehicle_info.timestamp.isoformat() if vehicle_info.timestamp else None
         }
+        
+        # Calculate predictions based on vehicle position
+        trip_details["stops"] = calculate_predictions_from_vehicle_position(
+            trip_details["stops"],
+            {
+                "latitude": vehicle_info.latitude,
+                "longitude": vehicle_info.longitude
+            },
+            {
+                "arrival_time": trip_details["stops"][0]["scheduled_arrival"] if trip_details["stops"] else None,
+                "departure_time": trip_details["stops"][0]["scheduled_departure"] if trip_details["stops"] else None
+            }
+        )
         
         return trip_details
         
@@ -199,3 +213,91 @@ async def get_vehicle_trip_details(
     except Exception as e:
         logger.error(f"Error fetching vehicle trip details: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+def calculate_predictions_from_vehicle_position(stops_data, vehicle_position, scheduled_times):
+    """
+    Calculate arrival predictions based on vehicle position and scheduled times.
+    """
+    if not vehicle_position or not vehicle_position.get('latitude') or not vehicle_position.get('longitude'):
+        return stops_data
+    
+    vehicle_lat = float(vehicle_position['latitude'])
+    vehicle_lon = float(vehicle_position['longitude'])
+    current_time = datetime.now()
+    
+    # Find the closest upcoming stop
+    closest_stop_index = None
+    min_distance = float('inf')
+    
+    for i, stop in enumerate(stops_data):
+        if stop['stop_lat'] and stop['stop_lon']:
+            distance = geodesic(
+                (vehicle_lat, vehicle_lon),
+                (stop['stop_lat'], stop['stop_lon'])
+            ).meters
+            
+            if distance < min_distance:
+                min_distance = distance
+                closest_stop_index = i
+    
+    if closest_stop_index is not None and min_distance < 500:  # Within 500 meters
+        # Estimate average speed (assuming 25 km/h in city traffic)
+        avg_speed_kmh = 25
+        avg_speed_ms = avg_speed_kmh * 1000 / 3600  # meters per second
+        
+        # Calculate predictions for upcoming stops
+        for i in range(closest_stop_index, len(stops_data)):
+            stop = stops_data[i]
+            if stop['stop_lat'] and stop['stop_lon']:
+                distance_to_stop = geodesic(
+                    (vehicle_lat, vehicle_lon),
+                    (stop['stop_lat'], stop['stop_lon'])
+                ).meters
+                
+                # Calculate estimated travel time
+                travel_time_seconds = distance_to_stop / avg_speed_ms
+                predicted_arrival = current_time + timedelta(seconds=travel_time_seconds)
+                
+                # Calculate delay compared to schedule
+                if stop['scheduled_arrival']:
+                    try:
+                        # Parse scheduled time (format: "HH:MM:SS")
+                        scheduled_time_parts = stop['scheduled_arrival'].split(':')
+                        scheduled_hour = int(scheduled_time_parts[0])
+                        scheduled_minute = int(scheduled_time_parts[1])
+                        scheduled_second = int(scheduled_time_parts[2])
+                        
+                        # Handle times after midnight (>24 hours)
+                        if scheduled_hour >= 24:
+                            scheduled_date = current_time.date() + timedelta(days=1)
+                            scheduled_hour -= 24
+                        else:
+                            scheduled_date = current_time.date()
+                        
+                        scheduled_datetime = datetime.combine(
+                            scheduled_date,
+                            datetime.min.time().replace(
+                                hour=scheduled_hour,
+                                minute=scheduled_minute,
+                                second=scheduled_second
+                            )
+                        )
+                        
+                        delay_seconds = (predicted_arrival - scheduled_datetime).total_seconds()
+                        
+                        stop['predicted_arrival'] = predicted_arrival.strftime('%H:%M:%S')
+                        stop['arrival_delay'] = int(delay_seconds)
+                        stop['status'] = 'predicted'
+                        
+                        # If delay is significant, mark as delayed
+                        if delay_seconds > 300:  # 5 minutes late
+                            stop['status'] = 'delayed'
+                        elif delay_seconds < -300:  # 5 minutes early
+                            stop['status'] = 'early'
+                        
+                    except (ValueError, IndexError):
+                        # If we can't parse the scheduled time, just show predicted time
+                        stop['predicted_arrival'] = predicted_arrival.strftime('%H:%M:%S')
+                        stop['status'] = 'predicted'
+    
+    return stops_data

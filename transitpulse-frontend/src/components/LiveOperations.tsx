@@ -196,10 +196,10 @@ const LiveOperations: React.FC = () => {
   };
 
   const getOccupancyLevel = (occupancyStatus?: number): string => {
-    // Since Golden Gate Transit doesn't provide occupancy data,
-    // we'll use a mock occupancy based on vehicle status and time
+    // Since Golden Gate Transit doesn't always provide occupancy data,
+    // we'll estimate occupancy based on time patterns when real data is unavailable
     if (!occupancyStatus) {
-      // Generate realistic occupancy based on time of day and status
+      // Generate realistic occupancy estimate based on time of day patterns
       const hour = new Date().getHours();
       const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 19);
       

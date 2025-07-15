@@ -51,9 +51,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API routers
-app.include_router(gtfs_router.router, prefix="/api/v1")
-
 # WebSocket endpoint for real-time vehicle updates
 @app.websocket("/ws/vehicles/{route_id}")
 async def websocket_endpoint(websocket: WebSocket, route_id: str):
@@ -100,17 +97,19 @@ async def test_endpoint():
         "port": 9000
     }
 
-# Include the API routers with appropriate prefixes
+# Include the full API router with all endpoints
 try:
-    app.include_router(gtfs_router.router, prefix="/api/v1")
+    from app.api import api_router
+    app.include_router(api_router, prefix="/api/v1")
+    
+    # Import and include additional routers
+    from .api.endpoints.shapes_router import router as shapes_router
     app.include_router(shapes_router, prefix="/api/v1", tags=["shapes"])
     
-    # Import and include traffic router
     from .api.endpoints.traffic import router as traffic_router
     app.include_router(traffic_router, prefix="/api/v1")
     
-    # app.include_router(gtfs_rt_router.router, prefix="/api/v1", tags=["gtfs-rt"])
-    print("✅ Successfully registered routers", file=sys.stderr)
+    print("✅ Successfully registered all API routers", file=sys.stderr)
 except Exception as e:
     print("\n🚨 ERROR REGISTERING ROUTERS 🚨", file=sys.stderr)
     print(f"Error: {e}", file=sys.stderr)

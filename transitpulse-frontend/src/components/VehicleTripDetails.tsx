@@ -96,10 +96,17 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
     setError(null);
 
     try {
-      // For now, let's create a mock response using the vehicle data
-      // In a real implementation, this would call /api/v1/trips/vehicle-trip-details/${vehicleId}
-      
-      // First get the vehicle data
+      // Try to fetch real trip details from backend API
+      try {
+        const response = await apiClient.get(`/trips/vehicle-trip-details/${vehicleId}`);
+        setTripDetails(response.data);
+        setLoading(false);
+        return;
+      } catch (apiError) {
+        console.warn('Trip details API not available, displaying basic vehicle info only');
+      }
+
+      // Fallback: Get real vehicle data only - no mock stops
       const vehicleResponse = await apiClient.get('/vehicles/realtime');
       const vehicles = vehicleResponse.data.data || [];
       const vehicle = vehicles.find((v: any) => v.vehicle_id === vehicleId);
@@ -108,86 +115,8 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
         throw new Error('Vehicle not found');
       }
 
-      // Create mock trip details with stops and times
-      const mockStops = [
-        {
-          stop_sequence: 1,
-          stop_id: "40003",
-          stop_name: "Salesforce Transit Center",
-          stop_lat: 37.790097,
-          stop_lon: -122.396066,
-          stop_code: "40003",
-          scheduled_arrival: "07:45:00",
-          scheduled_departure: "07:45:00",
-          predicted_arrival: Math.floor(Date.now() / 1000) + 300, // 5 minutes from now
-          predicted_departure: Math.floor(Date.now() / 1000) + 360,
-          arrival_delay: 180, // 3 minutes late
-          departure_delay: 180,
-          status: "updated" as const
-        },
-        {
-          stop_sequence: 2,
-          stop_id: "40006",
-          stop_name: "Folsom St & 2nd St",
-          stop_lat: 37.785447,
-          stop_lon: -122.396745,
-          stop_code: "40006",
-          scheduled_arrival: "07:50:00",
-          scheduled_departure: "07:50:00",
-          predicted_arrival: Math.floor(Date.now() / 1000) + 600, // 10 minutes from now
-          predicted_departure: Math.floor(Date.now() / 1000) + 660,
-          arrival_delay: 120, // 2 minutes late
-          departure_delay: 120,
-          status: "updated" as const
-        },
-        {
-          stop_sequence: 3,
-          stop_id: "40009", 
-          stop_name: "Howard St & 2nd St",
-          stop_lat: 37.78669,
-          stop_lon: -122.398446,
-          stop_code: "40009",
-          scheduled_arrival: "07:55:00",
-          scheduled_departure: "07:55:00",
-          predicted_arrival: Math.floor(Date.now() / 1000) + 900, // 15 minutes from now
-          predicted_departure: Math.floor(Date.now() / 1000) + 960,
-          arrival_delay: 60, // 1 minute late
-          departure_delay: 60,
-          status: "updated" as const
-        },
-        {
-          stop_sequence: 4,
-          stop_id: "40012",
-          stop_name: "4th St & Folsom St", 
-          stop_lat: 37.781803,
-          stop_lon: -122.400969,
-          stop_code: "40012",
-          scheduled_arrival: "08:00:00",
-          scheduled_departure: "08:00:00",
-          predicted_arrival: null,
-          predicted_departure: null,
-          arrival_delay: null,
-          departure_delay: null,
-          status: "scheduled" as const
-        },
-        {
-          stop_sequence: 5,
-          stop_id: "40023",
-          stop_name: "Golden Gate Ave & Polk St",
-          stop_lat: 37.781212,
-          stop_lon: -122.418585,
-          stop_code: "40023", 
-          scheduled_arrival: "08:05:00",
-          scheduled_departure: "08:05:00",
-          predicted_arrival: null,
-          predicted_departure: null,
-          arrival_delay: null,
-          departure_delay: null,
-          status: "scheduled" as const
-        }
-      ];
-
-      const mockTripDetails = {
+      // Create basic trip details using only real vehicle data - NO MOCK DATA
+      const realTripDetails = {
         trip_info: {
           trip_id: vehicle.trip_id,
           route_id: vehicle.route_id,
@@ -198,7 +127,7 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
           route_color: "#3366FF",
           route_text_color: "#FFFFFF"
         },
-        stops: mockStops,
+        stops: [], // No stops data available without real trip API
         vehicle_info: {
           vehicle_id: vehicle.vehicle_id,
           latitude: vehicle.latitude,
@@ -209,24 +138,11 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
           direction_name: vehicle.direction_name,
           last_updated: vehicle.timestamp
         },
-        real_time_updates: {
-          trip_id: vehicle.trip_id,
-          route_id: vehicle.route_id,
-          timestamp: new Date().toISOString(),
-          agency: "Golden Gate Transit",
-          stop_time_updates: mockStops.filter(s => s.predicted_arrival).map(s => ({
-            stop_id: s.stop_id,
-            stop_sequence: s.stop_sequence,
-            arrival_delay: s.arrival_delay,
-            departure_delay: s.departure_delay,
-            arrival_time: s.predicted_arrival,
-            departure_time: s.predicted_departure
-          }))
-        },
+        real_time_updates: null, // No mock real-time updates
         last_updated: new Date().toISOString()
       };
 
-      setTripDetails(mockTripDetails);
+      setTripDetails(realTripDetails);
     } catch (err) {
       console.error('Error fetching trip details:', err);
       setError('Failed to load trip details');
@@ -384,75 +300,92 @@ const VehicleTripDetails: React.FC<VehicleTripDetailsProps> = ({
                   <Text fontWeight="medium" color={textColor}>
                     Stops & Arrival Times
                   </Text>
-                  <Text fontSize="sm" color={subtextColor}>
-                    ({tripDetails.stops.length} stops)
-                  </Text>
+                  {tripDetails.stops.length > 0 ? (
+                    <Text fontSize="sm" color={subtextColor}>
+                      ({tripDetails.stops.length} stops)
+                    </Text>
+                  ) : (
+                    <Badge colorScheme="orange" size="sm">
+                      No stop data available
+                    </Badge>
+                  )}
                 </HStack>
 
-                <Box overflowX="auto" maxHeight="400px" overflowY="auto">
-                  <Table size="sm" variant="simple">
-                    <Thead position="sticky" top={0} bg={bgColor} zIndex={1}>
-                      <Tr>
-                        <Th>#</Th>
-                        <Th>Stop Name</Th>
-                        <Th>Scheduled</Th>
-                        <Th>Predicted</Th>
-                        <Th>Delay</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {tripDetails.stops.map((stop) => (
-                        <Tr key={stop.stop_id}>
-                          <Td>
-                            <Text fontSize="sm" fontWeight="medium">
-                              {stop.stop_sequence}
-                            </Text>
-                          </Td>
-                          <Td>
-                            <VStack align="start" spacing={0}>
-                              <Text fontSize="sm" fontWeight="medium">
-                                {stop.stop_name}
-                              </Text>
-                              <Text fontSize="xs" color={subtextColor}>
-                                {stop.stop_code || stop.stop_id}
-                              </Text>
-                            </VStack>
-                          </Td>
-                          <Td>
-                            <Text fontSize="sm">
-                              {formatTime(stop.scheduled_arrival)}
-                            </Text>
-                          </Td>
-                          <Td>
-                            {stop.predicted_arrival ? (
-                              <Text fontSize="sm" fontWeight="medium">
-                                {formatPredictedTime(stop.predicted_arrival)}
-                              </Text>
-                            ) : (
-                              <Text fontSize="sm" color={subtextColor}>
-                                No prediction
-                              </Text>
-                            )}
-                          </Td>
-                          <Td>
-                            {stop.arrival_delay !== null && stop.arrival_delay !== undefined ? (
-                              <Tooltip label={`${stop.arrival_delay} seconds`}>
-                                <Badge
-                                  colorScheme={getDelayColor(stop.arrival_delay)}
-                                  size="sm"
-                                >
-                                  {formatDelay(stop.arrival_delay)}
-                                </Badge>
-                              </Tooltip>
-                            ) : (
-                              <Text fontSize="sm" color={subtextColor}>-</Text>
-                            )}
-                          </Td>
+                {tripDetails.stops.length > 0 ? (
+                  <Box overflowX="auto" maxHeight="400px" overflowY="auto">
+                    <Table size="sm" variant="simple">
+                      <Thead position="sticky" top={0} bg={bgColor} zIndex={1}>
+                        <Tr>
+                          <Th>#</Th>
+                          <Th>Stop Name</Th>
+                          <Th>Scheduled</Th>
+                          <Th>Predicted</Th>
+                          <Th>Delay</Th>
                         </Tr>
-                      ))}
-                    </Tbody>
-                  </Table>
-                </Box>
+                      </Thead>
+                      <Tbody>
+                        {tripDetails.stops.map((stop) => (
+                          <Tr key={stop.stop_id}>
+                            <Td>
+                              <Text fontSize="sm" fontWeight="medium">
+                                {stop.stop_sequence}
+                              </Text>
+                            </Td>
+                            <Td>
+                              <VStack align="start" spacing={0}>
+                                <Text fontSize="sm" fontWeight="medium">
+                                  {stop.stop_name}
+                                </Text>
+                                <Text fontSize="xs" color={subtextColor}>
+                                  {stop.stop_code || stop.stop_id}
+                                </Text>
+                              </VStack>
+                            </Td>
+                            <Td>
+                              <Text fontSize="sm">
+                                {formatTime(stop.scheduled_arrival)}
+                              </Text>
+                            </Td>
+                            <Td>
+                              {stop.predicted_arrival ? (
+                                <Text fontSize="sm" fontWeight="medium">
+                                  {formatPredictedTime(stop.predicted_arrival)}
+                                </Text>
+                              ) : (
+                                <Text fontSize="sm" color={subtextColor}>
+                                  No prediction
+                                </Text>
+                              )}
+                            </Td>
+                            <Td>
+                              {stop.arrival_delay !== null && stop.arrival_delay !== undefined ? (
+                                <Tooltip label={`${stop.arrival_delay} seconds`}>
+                                  <Badge
+                                    colorScheme={getDelayColor(stop.arrival_delay)}
+                                    size="sm"
+                                  >
+                                    {formatDelay(stop.arrival_delay)}
+                                  </Badge>
+                                </Tooltip>
+                              ) : (
+                                <Text fontSize="sm" color={subtextColor}>-</Text>
+                              )}
+                            </Td>
+                          </Tr>
+                        ))}
+                      </Tbody>
+                    </Table>
+                  </Box>
+                ) : (
+                  <Box p={4} textAlign="center" color={subtextColor}>
+                    <Text fontSize="sm">
+                      Stop details are only available when the real-time trip API is connected.
+                    </Text>
+                    <Text fontSize="xs" mt={2}>
+                      Showing vehicle location and status information from real GTFS-RT feed.
+                    </Text>
+                  </Box>
+                )}
               </Box>
 
               {/* Real-time Update Info */}

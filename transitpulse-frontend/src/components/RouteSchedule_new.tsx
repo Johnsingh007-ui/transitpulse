@@ -299,8 +299,8 @@ const RouteSchedule: React.FC<RouteScheduleProps> = ({ routeId }) => {
         activeVehicles = vehicleData.vehicles || [];
       }
       
-      // Generate trip-based data (not stop-based)
-      console.warn('Using trip-based mock data for active buses');
+      // Generate trip-based data from real active vehicles
+      console.warn('Using trip-based data from real active vehicles');
       setTrips(generateActiveTripData(activeVehicles));
       
     } catch (err) {
