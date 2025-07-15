@@ -6,14 +6,78 @@ A comprehensive real-time transit monitoring and analytics platform designed for
 
 **✅ Currently loaded with real Golden Gate Transit GTFS data!**
 
-## 🚀 PRODUCTION READY - Quick Start
+## Prerequisites
 
-### Automated Startup (Recommended)
+### Dependencies
+Before launching TransitPulse, ensure all dependencies are installed:
+
+#### Python Dependencies
+```bash
+cd transitpulse-backend
+pip install -r requirements.txt
+```
+
+#### Node.js Dependencies
+```bash
+cd transitpulse-frontend
+npm install
+```
+
+### Environment Setup
+Configure the backend environment variables:
+
+1. Copy the example environment file:
+   ```bash
+   cd transitpulse-backend
+   cp .env.example .env
+   ```
+
+2. Update the `.env` file with your configuration:
+   - `DATABASE_URL`: URL for the PostgreSQL database
+   - `DB_HOST`: Host for the database (default: `localhost`)
+   - `DB_PORT`: Port for the database (default: `5432`)
+   - `API_PORT`: Port for the backend API (default: `9002`)
+   - `FRONTEND_PORT`: Port for the frontend (default: `3002`)
+
+## 🚀 Steps to Launch the Project
+
+### Production Setup (Recommended)
+Run the automated production script:
 ```bash
 git clone https://github.com/Johnsingh007-ui/transitpulse.git
 cd transitpulse
 ./start_transitpulse_production.sh
 ```
+
+### Development Setup
+For development with manual control over each service:
+
+1. **Start the database:**
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Initialize the database:**
+   ```bash
+   cd transitpulse-backend
+   python init_db.py
+   ```
+
+3. **Load GTFS static data:**
+   ```bash
+   python -m data_ingestion.gtfs_static_loader
+   ```
+
+4. **Launch the backend API:**
+   ```bash
+   python -m uvicorn app.main:app --host 0.0.0.0 --port 9002 --reload
+   ```
+
+5. **Launch the frontend application:**
+   ```bash
+   cd transitpulse-frontend
+   npm run dev -- --host 0.0.0.0 --port 3002
+   ```
 
 ### Access Points
 - **Frontend**: http://localhost:3002
@@ -36,7 +100,7 @@ cd transitpulse
 - Production-ready with clean console output
 
 ## 🔧 Port Configuration
-- **Frontend (Vite + React)**: Port 3002
+- **Frontend (React + Vite)**: Port 3002
 - **Backend (FastAPI)**: Port 9002
 - **Database (PostgreSQL)**: Port 5432
 
@@ -58,113 +122,7 @@ cd transitpulse
 - 🔧 **On-Demand Updates**: Trigger immediate data updates via API for schedule changes
 - 📈 **Agency Reports**: Generate performance reports and analytics for your operations
 
-## 🚀 Quick Start (Complete Setup)
 
-### Option 1: One-Command Startup (Recommended)
-
-```bash
-# From the root directory, start everything at once:
-cd /workspaces/transitpulse
-./start_complete.sh
-```
-
-This will automatically:
-- Start the database (Docker)
-- Launch the backend API on port 9001
-- Launch the frontend on port 3000
-- Show you the access URLs
-
-### Option 2: Manual Setup
-
-#### 1. Start Database
-
-```bash
-# Start PostgreSQL database using Docker Compose
-docker-compose up -d
-```
-
-#### 2. Start Backend API
-
-```bash
-cd transitpulse-backend
-
-# Install Python dependencies (if not already done)
-pip install -r requirements.txt
-
-# Start the API server on port 9001
-python fastapi_port_9001.py
-```
-
-#### 3. Start Frontend
-
-```bash
-cd transitpulse-frontend
-
-# Install Node.js dependencies (if not already done)
-npm install
-
-# Start the development server
-npm run dev -- --host 0.0.0.0 --port 3000
-```
-
-## 🌐 Accessing the Application
-
-### Local Development
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:9001
-- **API Documentation**: http://localhost:9001/docs
-
-### GitHub Codespaces / Remote Development
-1. Open the **PORTS** tab in VS Code
-2. Make sure ports **3000** and **9001** are set to **Public**
-3. Use the forwarded URLs provided in the PORTS tab
-4. Example: `https://your-codespace-name-3000.app.github.dev`
-
-### Troubleshooting Access Issues
-If you get a 404 error:
-1. Verify both servers are running (check terminal output)
-2. In VS Code PORTS tab, ensure visibility is set to "Public"
-3. Try the alternative network URLs shown in the terminal output
-4. For Codespaces: Use the exact forwarded URL from the PORTS tab
-
-## Prerequisites
-python init_db.py
-
-
-# Start the FastAPI backend
-python main.py
-# OR alternatively:
-# python -m uvicorn app.main:app --host 0.0.0.0 --port 9002 --reload
-```
-
-The backend will be available at: **http://localhost:9002**
-
-### 3. Setup Frontend
-
-```bash
-cd transitpulse-frontend
-
-# Install Node.js dependencies
-npm install
-
-# Start the development server
-npm run dev
-```
-
-The frontend will be available at: **http://localhost:3002**
-
-**Note**: The frontend is configured to proxy API requests to the backend at port 9002.
-
-## 🌐 Access Information
-
-Once both services are running:
-
-- **Frontend (Web Interface)**: http://localhost:3002
-- **Backend API**: http://localhost:9002  
-- **API Documentation**: http://localhost:9002/docs
-- **PostgreSQL Database**: localhost:5432 (via Docker)
-
-> **For Agencies**: The web interface at port 3002 is your main dashboard for monitoring your transit operations, generating reports, and viewing real-time vehicle positions.
 
 ## Project Structure
 
@@ -564,79 +522,82 @@ After configuring the files above:
 
 ## Troubleshooting
 
-### ✅ SYSTEM STATUS: FULLY OPERATIONAL
-**All components launched successfully:**
-- PostgreSQL Database: ✅ Running via Docker  
-- Backend API (port 9002): ✅ Active with route data loaded
-- Frontend Dashboard (port 3002): ✅ Live with all dependencies resolved
-- GTFS Data: ✅ 12 Golden Gate Transit routes loaded
-- Schedule Features: ✅ Calendar component with multiple view modes active
+### Common Launch Issues
 
-### Recent Startup Issues & Fixes (July 14, 2025)
+#### Port Conflicts
+Check if required ports are already in use:
+```bash
+# Check specific ports
+lsof -i :3002  # Frontend port
+lsof -i :9002  # Backend port  
+lsof -i :5432  # Database port
+```
 
-#### ✅ **Fixed: Uvicorn Reload Warning**
-**Issue**: Backend failed to start with warning: "You must pass the application as an import string to enable 'reload' or 'workers'"
+Stop conflicting processes:
+```bash
+# Kill process using specific port
+lsof -ti:9002 | xargs kill -9
+```
 
-**Root Cause**: The `main.py` file was passing the app object directly to uvicorn instead of using an import string.
+#### API Mapping Issues
+- **Backend API not accessible**: Ensure the backend is running at http://localhost:9002
+- **Test API endpoints manually**:
+  ```bash
+  curl http://localhost:9002/api/v1/test
+  curl http://localhost:9002/api/v1/routes
+  ```
+- **Use Postman or similar tools** to test endpoints like `/api/v1/routes`
 
-**Fix Applied**: Updated `/transitpulse-backend/main.py`:
+#### Missing Dependencies
+If dependencies are missing, reinstall:
+```bash
+# Python dependencies
+cd transitpulse-backend
+pip install -r requirements.txt
+
+# Node.js dependencies  
+cd transitpulse-frontend
+npm install
+```
+
+#### GTFS Data Issues
+- **Data not pulling**: Verify GTFS feeds are accessible and check logs for errors during ingestion
+- **Manual data reload**:
+  ```bash
+  cd transitpulse-backend
+  python -m data_ingestion.gtfs_static_loader
+  ```
+- **Check database connection**:
+  ```bash
+  python test_db_connection.py
+  ```
+
+### Specific Error Fixes
+
+#### ✅ Fixed: Uvicorn Reload Warning
+**Issue**: Backend failed to start with warning about import strings.
+**Solution**: Use proper import string format:
 ```python
-# BEFORE (caused error):
-uvicorn.run(app, host="0.0.0.0", port=9002, reload=True)
-
-# AFTER (working):
 uvicorn.run("app.main:app", host="0.0.0.0", port=9002, reload=True)
 ```
 
-#### ✅ **Fixed: Python Command Not Found**
-**Issue**: Some systems don't have a `python` symlink, only `python3`.
+#### ✅ Fixed: Python Command Not Found  
+**Issue**: System doesn't have `python` symlink.
+**Solution**: Use `python3` explicitly in commands.
 
-**Fix Applied**: Updated startup script to use `python3` explicitly:
-```bash
-# In start_transitpulse_production.sh:
-python3 main.py &  # instead of python main.py &
-```
-
-#### ⚠️ **Known: GTFS Duplicate Key Warnings**
-**Issue**: Database constraint violations when loading GTFS data due to existing records.
-
-**Status**: Non-critical - System continues to function normally. These warnings appear when GTFS data already exists in the database and the system attempts to reload it.
-
-**Impact**: None - Real-time data and all features work correctly.
-
-**Future Enhancement**: Could implement `INSERT ... ON CONFLICT DO UPDATE` for cleaner reloads.
-
-### Common Issues (Resolved)
-- **✅ @chakra-ui/icons missing**: Fixed - package installed successfully
-- **✅ Port conflicts**: All services running on correct ports (9002, 3002, 5432)
-- **✅ Database connection**: Verified and operational
-- **✅ GTFS data loading**: Routes successfully loaded despite duplicate key warnings
-- **✅ Frontend compilation**: All dependencies resolved, dev server running
-
-### Database Issues
-- **Connection refused**: Ensure Docker is running and `docker-compose up -d` has been executed
-- **Authentication failed**: Check the password in `transitpulse-backend/.env` matches `docker-compose.yml`
+#### Database Connection Issues
+- **Connection refused**: Ensure Docker is running and execute `docker-compose up -d`
+- **Authentication failed**: Check password in `.env` matches `docker-compose.yml`
 - **Tables not found**: Run `python init_db.py` to create database tables
 
-### Backend Issues
-- **Port 9002 in use**: Check if another process is using port 9002: `lsof -i :9002`
-- **Import errors**: Ensure you're running from the `transitpulse-backend` directory
-- **Database connection**: Verify PostgreSQL is running with `docker-compose ps`
-
-### Frontend Issues
-- **Missing @chakra-ui/icons**: Install with `npm install @chakra-ui/icons` (✅ Already resolved)
-- **Port 3002 in use**: Vite will automatically use the next available port
-- **API connection**: Ensure the backend is running at http://localhost:9002
-- **Build errors**: Clear node_modules and reinstall: `rm -rf node_modules && npm install`
-- **HTTP 401 errors**: Check that the vite.config.ts proxy points to the correct backend port (9002)
-
-### Quick Launch Commands
-```bash
-# If you need to restart everything:
-docker-compose up -d
-cd transitpulse-backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 9002 --reload &
-cd transitpulse-frontend && npm run dev
-```
+#### Frontend Build Issues
+- **Missing @chakra-ui/icons**: Fixed with `npm install @chakra-ui/icons`
+- **Build errors**: Clear cache and reinstall:
+  ```bash
+  rm -rf node_modules package-lock.json
+  npm install
+  ```
+- **HTTP 401 errors**: Check `vite.config.ts` proxy points to correct backend port (9002)
 
 ## License
 
