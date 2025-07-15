@@ -130,8 +130,6 @@ If you get a 404 error:
 ## Prerequisites
 python init_db.py
 
-# Load sample GTFS data (Golden Gate Transit already loaded)
-python -m data_ingestion.gtfs_static_loader --gtfs-zip path/to/gtfs.zip
 
 # Start the FastAPI backend
 python main.py
