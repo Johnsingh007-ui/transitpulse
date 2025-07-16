@@ -30,6 +30,8 @@ The universal launcher will:
 - `./dev_start.sh` - Quick development start
 - `./setup_and_start.sh` - Full setup with database initialization
 
+**⚠️ If launch.sh fails with HTTP 404/401 errors**, see the **🚨 RELIABLE STARTUP** section in Troubleshooting below for guaranteed working commands.
+
 ## 🎯 Project Data Policy
 
 **⚠️ IMPORTANT: NO MOCK DATA OR TEST DATA**
@@ -196,24 +198,72 @@ transitpulse/
 
 ## 🛠️ Troubleshooting
 
-**Common Issues:**
-
-1. **Port conflicts**: If ports 3002 or 9002 are busy, stop other services first
-2. **Database connection**: Wait for Docker container to fully start (may take 30+ seconds)
-3. **Dependencies missing**: Run `./fix_requirements.sh` if packages are missing
-4. **Permission denied**: Make scripts executable with `chmod +x *.sh`
-
-**Service Status Check:**
+### Quick Service Status Check
 ```bash
 ./status.sh                    # Check all services
 docker ps                     # Check database container
 curl http://localhost:9002/health  # Test backend
 ```
 
-**Clean restart:**
+### 🚨 RELIABLE STARTUP (If launch.sh fails)
+
+**If you're getting HTTP 404/401 errors or services won't start**, use these **guaranteed working commands**:
+
+#### Step 1: Kill Everything
 ```bash
-docker-compose down           # Stop database
-./launch.sh                   # Fresh start
+pkill -f "python.*main.py"
+pkill -f "vite"
+pkill -f "http.server"
+docker-compose down
+```
+
+#### Step 2: Start Backend (Reliable Method)
+```bash
+cd transitpulse-backend
+PYTHONPATH=/workspaces/transitpulse/transitpulse-backend uvicorn app.main:app --host 0.0.0.0 --port 9002
+```
+
+#### Step 3: Start Frontend (Reliable Method)
+```bash
+cd transitpulse-frontend
+chmod +x node_modules/vite/bin/vite.js
+NODE_PATH=/workspaces/transitpulse/transitpulse-frontend/node_modules /workspaces/transitpulse/transitpulse-frontend/node_modules/vite/bin/vite.js --host 0.0.0.0 --port 3002
+```
+
+**✅ Success Indicators:**
+- Backend: `INFO: Uvicorn running on http://0.0.0.0:9002`
+- Frontend: `VITE v4.5.14 ready in XXXms`
+- Both accessible: http://localhost:9002/docs and http://localhost:3002
+
+### Common Issues
+
+1. **Port conflicts**: If ports 3002 or 9002 are busy, stop other services first
+2. **Database connection**: Wait for Docker container to fully start (may take 30+ seconds)
+3. **Dependencies missing**: Run `./fix_requirements.sh` if packages are missing
+4. **Permission denied**: Make scripts executable with `chmod +x *.sh`
+5. **npm/vite issues**: Use the reliable frontend startup method above
+6. **Python path issues**: Use PYTHONPATH environment variable as shown
+
+### Clean Restart Protocol
+```bash
+# Full system reset
+docker-compose down
+pkill -f "python"
+pkill -f "vite"
+pkill -f "node"
+
+# Wait 10 seconds, then restart
+docker-compose up -d
+# Wait for database to start, then use reliable startup commands above
+```
+
+### Environment Validation
+```bash
+# Verify tools are available
+python --version    # Should be 3.8+
+node --version      # Should be 16+
+npm --version       # Should be 8+
+docker --version    # Should be 20+
 ```
 
 ## 🎨 Color Coding System

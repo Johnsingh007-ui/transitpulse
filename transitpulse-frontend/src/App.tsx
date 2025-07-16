@@ -48,7 +48,7 @@ const App: React.FC = () => {
         setIsLoading(true);
         
         // Try the backend root endpoint first to check if it's accessible
-        const response = await fetch('/api/v1/agencies/', {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:9002/api/v1'}/agencies/`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',

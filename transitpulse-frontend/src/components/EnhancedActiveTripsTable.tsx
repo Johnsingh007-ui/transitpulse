@@ -321,3 +321,5 @@ export const ActiveTripsTable: React.FC<ActiveTripsTableProps> = ({ vehicles = [
     </Box>
   );
 };
+
+export { ActiveTripsTable as EnhancedActiveTripsTable };
