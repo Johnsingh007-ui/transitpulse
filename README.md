@@ -30,6 +30,28 @@ The universal launcher will:
 - `./dev_start.sh` - Quick development start
 - `./setup_and_start.sh` - Full setup with database initialization
 
+## 🎯 Project Data Policy
+
+**⚠️ IMPORTANT: NO MOCK DATA OR TEST DATA**
+
+This project is committed to using **REAL DATA ONLY**:
+
+- ✅ **Real Transit Data**: Golden Gate Transit GTFS-RT feeds
+- ✅ **Live API Integration**: 511 Bay Area API for traffic and trip updates
+- ✅ **Actual Vehicle Positions**: Real-time tracking from transit agencies
+- ✅ **Authentic Predictions**: Genuine arrival/departure times with real delays
+
+**❌ NEVER ADD:**
+- Mock data or dummy data in APIs
+- Hardcoded sample responses
+- Test data in production endpoints
+- Fake vehicle positions or times
+- Simulated delay calculations
+
+**Why?** TransitPulse is designed to be a production-ready transit monitoring system. All features, calculations, and displays must reflect real-world transit operations to be valuable for actual transit agencies and passengers.
+
+If real data is temporarily unavailable, the system should return appropriate error messages rather than fallback to mock data.
+
 ## ✨ Key Features
 
 - **Real-time Vehicle Tracking** - Live positions and trip progress

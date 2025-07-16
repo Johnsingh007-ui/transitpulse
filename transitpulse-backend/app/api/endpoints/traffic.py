@@ -121,12 +121,11 @@ class TrafficService:
                     return traffic_data
                 else:
                     print(f"511 API error: {events_response.status_code}")
-                    return self._get_mock_traffic_data()
+                    raise HTTPException(status_code=502, detail="511 API returned error")
                 
         except Exception as e:
             print(f"Error fetching 511 traffic data: {e}")
-            # Return mock data if real API fails
-            return self._get_mock_traffic_data()
+            raise HTTPException(status_code=502, detail=f"Failed to fetch 511 traffic data: {str(e)}")
     
     def _extract_location(self, event) -> str:
         """Extract location information from 511 event"""
@@ -145,108 +144,6 @@ class TrafficService:
         
         return event.get("headline", "Unknown location")[:50]
     
-    def _get_mock_traffic_data(self) -> Dict[str, Any]:
-        """Provide mock traffic data for development/demo"""
-        return {
-            "flow": [
-                {
-                    "road_name": "US-101",
-                    "direction": "North",
-                    "speed": 25,
-                    "normal_speed": 65,
-                    "congestion_level": "heavy",
-                    "coordinates": [
-                        {"lat": 37.7749, "lng": -122.4194},
-                        {"lat": 37.7849, "lng": -122.4194}
-                    ]
-                },
-                {
-                    "road_name": "I-80",
-                    "direction": "East", 
-                    "speed": 45,
-                    "normal_speed": 65,
-                    "congestion_level": "moderate",
-                    "coordinates": [
-                        {"lat": 37.8044, "lng": -122.2711},
-                        {"lat": 37.8144, "lng": -122.2611}
-                    ]
-                },
-                {
-                    "road_name": "CA-24",
-                    "direction": "West",
-                    "speed": 60,
-                    "normal_speed": 65,
-                    "congestion_level": "light",
-                    "coordinates": [
-                        {"lat": 37.8522, "lng": -122.2437},
-                        {"lat": 37.8622, "lng": -122.2337}
-                    ]
-                },
-                {
-                    "road_name": "I-580",
-                    "direction": "East",
-                    "speed": 15,
-                    "normal_speed": 65,
-                    "congestion_level": "heavy",
-                    "coordinates": [
-                        {"lat": 37.8270, "lng": -122.2643},
-                        {"lat": 37.8370, "lng": -122.2543}
-                    ]
-                },
-                {
-                    "road_name": "Golden Gate Bridge",
-                    "direction": "South",
-                    "speed": 35,
-                    "normal_speed": 45,
-                    "congestion_level": "moderate",
-                    "coordinates": [
-                        {"lat": 37.8199, "lng": -122.4783},
-                        {"lat": 37.8083, "lng": -122.4784}
-                    ]
-                }
-            ],
-            "incidents": [
-                {
-                    "type": "accident",
-                    "severity": "major",
-                    "description": "Multi-vehicle accident blocking 2 lanes",
-                    "location": "US-101 North at Cesar Chavez",
-                    "coordinates": {"lat": 37.7489, "lng": -122.4089},
-                    "reported_at": "2024-01-20T10:30:00Z",
-                    "estimated_clearance": "2024-01-20T12:00:00Z"
-                },
-                {
-                    "type": "construction",
-                    "severity": "minor",
-                    "description": "Lane closure for maintenance",
-                    "location": "I-80 West at Bay Bridge",
-                    "coordinates": {"lat": 37.7983, "lng": -122.3778},
-                    "reported_at": "2024-01-20T09:00:00Z",
-                    "estimated_clearance": "2024-01-20T15:00:00Z"
-                },
-                {
-                    "type": "breakdown",
-                    "severity": "minor",
-                    "description": "Disabled vehicle on shoulder",
-                    "location": "I-580 East at Oakland",
-                    "coordinates": {"lat": 37.8044, "lng": -122.2508},
-                    "reported_at": "2024-01-20T11:15:00Z",
-                    "estimated_clearance": "2024-01-20T11:45:00Z"
-                },
-                {
-                    "type": "accident",
-                    "severity": "critical",
-                    "description": "Major collision - all lanes blocked",
-                    "location": "Golden Gate Bridge - South Tower",
-                    "coordinates": {"lat": 37.8167, "lng": -122.4786},
-                    "reported_at": "2024-01-20T11:30:00Z",
-                    "estimated_clearance": "2024-01-20T13:00:00Z"
-                }
-            ],
-            "last_updated": datetime.now().isoformat(),
-            "bounds": BAY_AREA_BOUNDS
-        }
-
 # Initialize traffic service
 traffic_service = TrafficService()
 
