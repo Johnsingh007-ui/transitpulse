@@ -5,7 +5,6 @@ import {
   Grid,
   Heading,
   Text,
-  Badge,
   Button,
   ButtonGroup,
   Input,
@@ -19,31 +18,24 @@ import {
   Stat,
   StatLabel,
   StatNumber,
-  StatHelpText,
-  Progress,
   Icon,
   VStack,
   HStack,
-  Spacer,
-  Divider,
   useColorModeValue,
   Collapse,
   IconButton,
   Tooltip,
+  InputGroup,
+  InputLeftElement,
 } from '@chakra-ui/react';
 import {
   FiMap,
   FiList,
   FiBarChart2,
-  FiFilter,
   FiSearch,
   FiRefreshCw,
-  FiSettings,
   FiChevronLeft,
   FiChevronRight,
-  FiNavigation,
-  FiClock,
-  FiUsers,
   FiAlertTriangle,
 } from 'react-icons/fi';
 import { EnhancedRealTimeMap } from './EnhancedRealTimeMap';
@@ -90,7 +82,7 @@ type ViewMode = 'map' | 'list' | 'ladder';
 export const ModernDashboard: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('map');
   const [selectedRoutes, setSelectedRoutes] = useState<string[]>(['all']);
-  const [selectedRoute, setSelectedRoute] = useState<string | null>(null); // For route-specific view
+  const [selectedRoute, setSelectedRoute] = useState<string | undefined>(undefined); // For route-specific view
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(true);
   const [showStops, setShowStops] = useState(true);
@@ -103,7 +95,6 @@ export const ModernDashboard: React.FC = () => {
 
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
 
   // Fetch real-time data and all routes
   const fetchRealtimeData = async () => {
@@ -166,22 +157,30 @@ export const ModernDashboard: React.FC = () => {
   // Filter available routes (only routes with active vehicles)
   const availableRoutes = [...new Set(vehicleData.map(v => v.route_id))].sort();
 
-  // Filter vehicles based on selected routes and search
-  const filteredVehicles = vehicleData.filter(vehicle => {
-    if (selectedRoutes.includes('all') || selectedRoutes.includes(vehicle.route_id)) {
-      if (searchQuery) {
-        return (
-          vehicle.vehicle_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          vehicle.route_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          vehicle.trip_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          vehicle.operator?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          vehicle.agency.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+  // Filter vehicles based on selected routes and search, and ensure status matches allowed values
+  const allowedStatuses = ["early", "on-time", "late", "missing", "layover"] as const;
+  const filteredVehicles = vehicleData
+    .filter(vehicle => {
+      if (selectedRoutes.includes('all') || selectedRoutes.includes(vehicle.route_id)) {
+        if (searchQuery) {
+          return (
+            vehicle.vehicle_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            vehicle.route_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            vehicle.trip_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            vehicle.operator?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            vehicle.agency.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+        }
+        return true;
       }
-      return true;
-    }
-    return false;
-  });
+      return false;
+    })
+    .map(vehicle => ({
+      ...vehicle,
+      status: allowedStatuses.includes(vehicle.status as any)
+        ? (vehicle.status as typeof allowedStatuses[number])
+        : undefined,
+    }));
 
   const getStatusPercentage = (count: number, total: number) => {
     return total > 0 ? (count / total) * 100 : 0;
@@ -240,7 +239,7 @@ export const ModernDashboard: React.FC = () => {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setSelectedRoute(null)}
+              onClick={() => setSelectedRoute(undefined)}
             >
               Back to Overview
             </Button>
@@ -417,13 +416,16 @@ export const ModernDashboard: React.FC = () => {
                   <VStack spacing={4} align="stretch">
                     <FormControl>
                       <FormLabel fontSize="xs">Search</FormLabel>
-                      <Input
-                        size="sm"
-                        placeholder="Vehicle, block, stop, operator..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        leftElement={<Icon as={FiSearch} color="gray.400" />}
-                      />
+                      <InputGroup size="sm">
+                        <InputLeftElement pointerEvents="none">
+                          <Icon as={FiSearch} color="gray.400" />
+                        </InputLeftElement>
+                        <Input
+                          placeholder="Vehicle, block, stop, operator..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                      </InputGroup>
                     </FormControl>
 
                     <FormControl>
