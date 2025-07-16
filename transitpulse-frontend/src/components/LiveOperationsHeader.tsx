@@ -1,0 +1,183 @@
+import React from 'react';
+import {
+  Box,
+  Flex,
+  Heading,
+  Text,
+  HStack,
+  Badge,
+  Icon,
+  Tooltip,
+  useColorModeValue,
+  Container
+} from '@chakra-ui/react';
+import { 
+  FiWifi, 
+  FiWifiOff, 
+  FiClock, 
+  FiTruck,
+  FiActivity
+} from 'react-icons/fi';
+import { motion } from 'framer-motion';
+
+const MotionBox = motion(Box);
+
+interface LiveOperationsHeaderProps {
+  isConnected: boolean;
+  lastUpdated: Date;
+  totalTrips: number;
+  onTimePercentage: number;
+}
+
+const LiveOperationsHeader: React.FC<LiveOperationsHeaderProps> = ({
+  isConnected,
+  lastUpdated,
+  totalTrips,
+  onTimePercentage
+}) => {
+  const bgColor = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  const getPerformanceColor = (percentage: number) => {
+    if (percentage >= 90) return 'green';
+    if (percentage >= 80) return 'yellow';
+    return 'red';
+  };
+
+  return (
+    <MotionBox
+      bg={bgColor}
+      borderBottom="1px"
+      borderColor={borderColor}
+      py={4}
+      px={6}
+      shadow="sm"
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <Container maxW="7xl">
+        <Flex justify="space-between" align="center">
+          {/* Left side - Title and Live indicator */}
+          <HStack spacing={4}>
+            <Box>
+              <Heading size="lg" color="blue.600" fontWeight="bold">
+                TransitPulse
+              </Heading>
+              <Text fontSize="sm" color="gray.500">
+                Live Operations Dashboard
+              </Text>
+            </Box>
+            
+            <Tooltip label={isConnected ? 'Connected to real-time feed' : 'Connection lost'}>
+              <HStack 
+                spacing={2} 
+                px={3} 
+                py={1} 
+                rounded="full" 
+                bg={isConnected ? 'green.50' : 'red.50'}
+                border="1px"
+                borderColor={isConnected ? 'green.200' : 'red.200'}
+              >
+                <Icon 
+                  as={isConnected ? FiWifi : FiWifiOff} 
+                  color={isConnected ? 'green.500' : 'red.500'}
+                  fontSize="sm"
+                />
+                <Text 
+                  fontSize="xs" 
+                  fontWeight="medium"
+                  color={isConnected ? 'green.700' : 'red.700'}
+                >
+                  {isConnected ? 'LIVE' : 'OFFLINE'}
+                </Text>
+              </HStack>
+            </Tooltip>
+          </HStack>
+
+          {/* Right side - Stats and Status */}
+          <HStack spacing={6}>
+            {/* Active Buses */}
+            <HStack spacing={2}>
+              <Icon as={FiTruck} color="blue.500" />
+              <Box>
+                <Text fontSize="xs" color="gray.500" fontWeight="medium">
+                  ACTIVE BUSES
+                </Text>
+                <Text fontSize="lg" fontWeight="bold" color="blue.600">
+                  {totalTrips}
+                </Text>
+              </Box>
+            </HStack>
+
+            {/* On-Time Performance */}
+            <HStack spacing={2}>
+              <Icon as={FiActivity} color={getPerformanceColor(onTimePercentage) + '.500'} />
+              <Box>
+                <Text fontSize="xs" color="gray.500" fontWeight="medium">
+                  ON-TIME
+                </Text>
+                <Text 
+                  fontSize="lg" 
+                  fontWeight="bold" 
+                  color={getPerformanceColor(onTimePercentage) + '.600'}
+                >
+                  {onTimePercentage.toFixed(1)}%
+                </Text>
+              </Box>
+            </HStack>
+
+            {/* Last Update */}
+            <HStack spacing={2}>
+              <Icon as={FiClock} color="gray.500" />
+              <Box>
+                <Text fontSize="xs" color="gray.500" fontWeight="medium">
+                  LAST UPDATE
+                </Text>
+                <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                  {formatTime(lastUpdated)}
+                </Text>
+              </Box>
+            </HStack>
+
+            {/* Live Badge */}
+            <MotionBox
+              animate={{
+                scale: [1, 1.05, 1],
+                opacity: [1, 0.8, 1]
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            >
+              <Badge
+                colorScheme={isConnected ? 'green' : 'red'}
+                variant="solid"
+                fontSize="xs"
+                px={3}
+                py={1}
+                rounded="full"
+                textTransform="uppercase"
+                letterSpacing="wide"
+              >
+                ● {isConnected ? 'Real-Time' : 'Disconnected'}
+              </Badge>
+            </MotionBox>
+          </HStack>
+        </Flex>
+      </Container>
+    </MotionBox>
+  );
+};
+
+export default LiveOperationsHeader;
