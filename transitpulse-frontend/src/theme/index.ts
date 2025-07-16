@@ -34,6 +34,13 @@ const theme = extendTheme({
       800: '#873800',
       900: '#612500',
     },
+    transit: {
+      early: '#FF6B6B',
+      onTime: '#51CF66',
+      late: '#FFD93D',
+      missing: '#868E96',
+      layover: '#339AF0',
+    },
     gray: {
       50: '#fafafa',
       100: '#f5f5f5',

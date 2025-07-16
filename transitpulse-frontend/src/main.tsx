@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import App from './App';
 import theme from './theme';
 import './index.css';
+import './styles/modern-dashboard.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Failed to find the root element');

@@ -1,0 +1,232 @@
+/* Modern Dashboard Styles */
+
+/* Font imports */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Smooth scrolling and animations */
+* {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Dark mode scrollbar */
+.chakra-ui-dark ::-webkit-scrollbar-track {
+  background: #2d3748;
+}
+
+.chakra-ui-dark ::-webkit-scrollbar-thumb {
+  background: #4a5568;
+}
+
+.chakra-ui-dark ::-webkit-scrollbar-thumb:hover {
+  background: #718096;
+}
+
+/* Smooth transitions */
+.chakra-card,
+.chakra-button,
+.chakra-badge {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced card shadows */
+.modern-card {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.modern-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Status indicators */
+.status-indicator {
+  position: relative;
+  overflow: hidden;
+}
+
+.status-indicator::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: currentColor;
+}
+
+/* Vehicle status colors */
+.status-early { color: #FF6B6B; }
+.status-on-time { color: #51CF66; }
+.status-late { color: #FFD93D; }
+.status-missing { color: #868E96; }
+.status-layover { color: #339AF0; }
+
+/* Loading states */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Real-time updates animation */
+.realtime-pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Map container */
+.leaflet-container {
+  background: #f8f9fa;
+  font-family: 'Inter', sans-serif;
+}
+
+.chakra-ui-dark .leaflet-container {
+  background: #1a202c;
+}
+
+/* Custom map controls */
+.leaflet-control-zoom a {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+}
+
+/* Table enhancements */
+.modern-table {
+  border-spacing: 0;
+}
+
+.modern-table th {
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 16px;
+}
+
+.modern-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.chakra-ui-dark .modern-table td {
+  border-bottom-color: #2d3748;
+}
+
+/* Route ladder styles */
+.route-ladder {
+  position: relative;
+}
+
+.route-ladder::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #e2e8f0;
+  transform: translateX(-50%);
+}
+
+.chakra-ui-dark .route-ladder::before {
+  background: #4a5568;
+}
+
+/* Vehicle marker animations */
+.vehicle-marker {
+  transition: transform 0.3s ease;
+}
+
+.vehicle-marker:hover {
+  transform: scale(1.1);
+}
+
+/* Performance metric cards */
+.metric-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.metric-card.positive {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.metric-card.negative {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.metric-card.warning {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  color: #744210;
+}
+
+/* Filter panel */
+.filter-panel {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.chakra-ui-dark .filter-panel {
+  background: rgba(26, 32, 44, 0.9);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .modern-dashboard {
+    padding: 8px;
+  }
+  
+  .dashboard-sidebar {
+    position: fixed;
+    top: 0;
+    left: -300px;
+    width: 300px;
+    height: 100vh;
+    z-index: 1000;
+    transition: left 0.3s ease;
+  }
+  
+  .dashboard-sidebar.open {
+    left: 0;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+}

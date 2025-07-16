@@ -28,6 +28,7 @@ import LiveOperations from './components/LiveOperations';
 import RealTimeMap from './components/RealTimeMap';
 import PerformanceDashboard from './components/PerformanceDashboard';
 import LiveOperationsHeader from './components/LiveOperationsHeader';
+import { ModernDashboard } from './components/ModernDashboard';
 import ConnectionStatus from './components/ConnectionStatus';
 import DataStatus from './components/DataStatus';
 import RouteSelector from './components/RouteSelector';
@@ -150,6 +151,10 @@ const App: React.FC = () => {
             <TabList>
               <Tab>
                 <FiActivity style={{ marginRight: '8px' }} />
+                Modern Dashboard
+              </Tab>
+              <Tab>
+                <FiActivity style={{ marginRight: '8px' }} />
                 Live Operations
               </Tab>
               <Tab>
@@ -163,6 +168,13 @@ const App: React.FC = () => {
             </TabList>
 
             <TabPanels>
+              {/* Modern Dashboard Tab */}
+              <TabPanel p={0}>
+                <Box h="calc(100vh - 200px)">
+                  <ModernDashboard />
+                </Box>
+              </TabPanel>
+
               {/* Live Operations Tab */}
               <TabPanel p={0} pt={4}>
                 <Grid templateColumns="1fr" gap={4}>
