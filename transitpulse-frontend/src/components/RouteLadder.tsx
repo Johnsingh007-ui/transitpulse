@@ -282,11 +282,12 @@ const RouteLadder: React.FC<RouteLadderProps> = ({ routeId, direction = 'inbound
             </HStack>
             
             <FormControl display="flex" alignItems="center" justifyContent="space-between">
-              <FormLabel htmlFor="timepoints-only" mb="0" fontSize="sm">
+              <FormLabel htmlFor="routeLadder-timepoints-only" mb="0" fontSize="sm">
                 Timepoints only
               </FormLabel>
               <Switch 
-                id="timepoints-only" 
+                id="routeLadder-timepoints-only"
+                name="routeLadder-timepoints-only"
                 isChecked={showTimepointsOnly}
                 onChange={(e) => setShowTimepointsOnly(e.target.checked)}
               />

@@ -113,9 +113,15 @@ export const EnhancedRealTimeMap: React.FC<EnhancedRealTimeMapProps> = ({
 
   // Initialize map
   useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
+    if (!mapRef.current) return;
 
-    const map = L.map(mapRef.current, {
+    // Prevent "Map container is already initialized" error
+    const container = mapRef.current;
+    if (container && container.innerHTML !== '') {
+      container.innerHTML = '';
+    }
+
+    const map = L.map(container, {
       center: [37.7749, -122.4194], // San Francisco Bay Area
       zoom: 10,
       zoomControl: true,
@@ -128,11 +134,14 @@ export const EnhancedRealTimeMap: React.FC<EnhancedRealTimeMapProps> = ({
     }).addTo(map);
 
     // Add a more detailed tile layer for transit
-    L.tileLayer('https://tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=YOUR_API_KEY', {
-      attribution: '© Thunderforest, © OpenStreetMap contributors',
-      maxZoom: 18,
-      opacity: 0.7,
-    }).addTo(map);
+    const thunderforestApiKey = import.meta.env.VITE_THUNDERFOREST_API_KEY || '';
+    if (thunderforestApiKey) {
+      L.tileLayer(`https://tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=${thunderforestApiKey}`, {
+        attribution: '© Thunderforest, © OpenStreetMap contributors',
+        maxZoom: 18,
+        opacity: 0.7,
+      }).addTo(map);
+    }
 
     mapInstanceRef.current = map;
 

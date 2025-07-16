@@ -332,11 +332,12 @@ const LiveOperations: React.FC = () => {
         <Card>
           <CardBody>
             <FormControl display="flex" alignItems="center">
-              <FormLabel htmlFor="auto-refresh" mb="0" fontSize="sm">
+              <FormLabel htmlFor="liveOps-auto-refresh" mb="0" fontSize="sm">
                 Auto Refresh
               </FormLabel>
               <Switch 
-                id="auto-refresh" 
+                id="liveOps-auto-refresh"
+                name="liveOps-auto-refresh"
                 isChecked={autoRefresh}
                 onChange={(e) => setAutoRefresh(e.target.checked)}
                 colorScheme="green"

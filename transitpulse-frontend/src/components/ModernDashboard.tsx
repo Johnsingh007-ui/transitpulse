@@ -27,22 +27,34 @@ import {
   Tooltip,
   InputGroup,
   InputLeftElement,
+  Divider,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel
 } from '@chakra-ui/react';
 import {
-  FiMap,
-  FiList,
-  FiBarChart2,
-  FiSearch,
-  FiRefreshCw,
   FiChevronLeft,
   FiChevronRight,
   FiAlertTriangle,
+  FiRefreshCw,
+  FiMap,
+  FiList,
+  FiBarChart2,
+  FiSearch
 } from 'react-icons/fi';
 import { EnhancedRealTimeMap } from './EnhancedRealTimeMap';
 import { EnhancedActiveTripsTable } from './EnhancedActiveTripsTable';
 import { EnhancedRouteLadderView } from './EnhancedRouteLadderView';
 import { RouteStatusSummary } from './RouteStatusSummary';
 import { RouteActiveTrips } from './RouteActiveTrips';
+
+const allowedStatuses = ['early', 'on-time', 'late', 'missing', 'layover'] as const;
+const normalizeStatus = (status: string | undefined) =>
+  allowedStatuses.includes(status as any)
+    ? (status as typeof allowedStatuses[number])
+    : undefined;
 
 interface VehicleData {
   vehicle_id: string;
@@ -77,10 +89,7 @@ interface RealtimeStats {
   };
 }
 
-type ViewMode = 'map' | 'list' | 'ladder';
-
 export const ModernDashboard: React.FC = () => {
-  const [viewMode, setViewMode] = useState<ViewMode>('map');
   const [selectedRoutes, setSelectedRoutes] = useState<string[]>(['all']);
   const [selectedRoute, setSelectedRoute] = useState<string | undefined>(undefined); // For route-specific view
   const [searchQuery, setSearchQuery] = useState('');
@@ -158,7 +167,6 @@ export const ModernDashboard: React.FC = () => {
   const availableRoutes = [...new Set(vehicleData.map(v => v.route_id))].sort();
 
   // Filter vehicles based on selected routes and search, and ensure status matches allowed values
-  const allowedStatuses = ["early", "on-time", "late", "missing", "layover"] as const;
   const filteredVehicles = vehicleData
     .filter(vehicle => {
       if (selectedRoutes.includes('all') || selectedRoutes.includes(vehicle.route_id)) {
@@ -177,297 +185,168 @@ export const ModernDashboard: React.FC = () => {
     })
     .map(vehicle => ({
       ...vehicle,
-      status: allowedStatuses.includes(vehicle.status as any)
-        ? (vehicle.status as typeof allowedStatuses[number])
-        : undefined,
+      status: normalizeStatus(vehicle.status),
     }));
+  // Sync selectedRoute and selectedRoutes
+  useEffect(() => {
+    if (selectedRoute && !selectedRoutes.includes(selectedRoute)) {
+      setSelectedRoutes([selectedRoute]);
+    }
+  }, [selectedRoute]);
 
   const getStatusPercentage = (count: number, total: number) => {
     return total > 0 ? (count / total) * 100 : 0;
   };
 
   return (
-    <Box bg={bgColor} minH="100vh" p={6}>
+    <Box bg={bgColor} minH="100vh" p={8}>
       {/* Header */}
-      <Flex align="center" justify="space-between" mb={6}>
+      <Flex align="center" justify="space-between" mb={8}>
         <Box>
-          <Heading size="lg" color="blue.600">
+          <Heading size="lg" color="blue.600" mb={2}>
             Live Operations Dashboard
           </Heading>
-          <Text color="gray.600" fontSize="sm">
+          <Text color="gray.600" fontSize="md">
             Real-time transit monitoring • Last updated: {lastUpdate.toLocaleTimeString()}
           </Text>
         </Box>
-        
-        <HStack spacing={3}>
+        <HStack spacing={6}>
           <Tooltip label="Refresh data">
             <IconButton
               aria-label="Refresh"
               icon={<FiRefreshCw />}
               onClick={fetchRealtimeData}
               isLoading={loading}
-              size="sm"
+              size="md"
               variant="outline"
             />
           </Tooltip>
-          
-          <ButtonGroup size="sm" isAttached variant="outline">
-            <Button
-              leftIcon={<FiMap />}
-              isActive={viewMode === 'map'}
-              onClick={() => setViewMode('map')}
-            >
-              Map
-            </Button>
-            <Button
-              leftIcon={<FiList />}
-              isActive={viewMode === 'list'}
-              onClick={() => setViewMode('list')}
-            >
-              List
-            </Button>
-            <Button
-              leftIcon={<FiBarChart2 />}
-              isActive={viewMode === 'ladder'}
-              onClick={() => setViewMode('ladder')}
-            >
-              Ladder
-            </Button>
-          </ButtonGroup>
-          
+          {/* Removed redundant viewMode ButtonGroup, now handled by Tabs below */}
           {selectedRoute && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setSelectedRoute(undefined)}
-            >
-              Back to Overview
-            </Button>
+            <Button size="md" variant="outline" onClick={() => setSelectedRoute(undefined)}>Back to Overview</Button>
           )}
         </HStack>
       </Flex>
-
+      <Divider mb={8} />
       {/* Route Status Summary - Always visible at top */}
-      <RouteStatusSummary 
-        onRouteClick={setSelectedRoute}
-        selectedRoute={selectedRoute}
-      />
-
+      <RouteStatusSummary onRouteClick={setSelectedRoute} selectedRoute={selectedRoute} />
+      <Divider my={8} />
       {/* Conditional Content - Either route-specific view or dashboard */}
       {selectedRoute ? (
-        /* Route-specific view showing active trips */
-        <RouteActiveTrips 
-          routeId={selectedRoute}
-          routeName={allRoutes.find(r => r.route_id === selectedRoute)?.route_short_name || selectedRoute}
-        />
+        <RouteActiveTrips routeId={selectedRoute} routeName={allRoutes.find(r => r.route_id === selectedRoute)?.route_short_name || selectedRoute} />
       ) : (
-        /* Main dashboard with sidebar and map/list/ladder views */
-        <Grid templateColumns="300px 1fr" gap={6} h="calc(100vh - 200px)">
+        <Grid templateColumns="340px 1fr" gap={10} h="calc(100vh - 260px)">
           {/* Sidebar */}
           <Box>
-            {/* Real-time Stats Card */}
-            <Card bg={cardBg} mb={4}>
+            <Card bg={cardBg} mb={6} p={4} borderRadius="xl" boxShadow="md">
               <CardHeader pb={2}>
                 <Flex align="center" justify="space-between">
-                  <Text fontWeight="semibold" fontSize="sm">Real-Time Stats</Text>
-                  <Button size="xs" variant="ghost" colorScheme="blue">Hide</Button>
+                  <Text fontWeight="semibold" fontSize="md">Real-Time Stats</Text>
                 </Flex>
               </CardHeader>
               <CardBody pt={0}>
-                <VStack spacing={3} align="stretch">
+                <VStack spacing={4} align="stretch">
                   <Stat>
-                    <StatLabel fontSize="xs">Active Trips</StatLabel>
+                    <StatLabel fontSize="sm">Active Trips</StatLabel>
                     <StatNumber fontSize="2xl">{realtimeStats?.totalTrips || 0}</StatNumber>
                   </Stat>
-                  
-                  <VStack spacing={2} align="stretch">
+                  <VStack spacing={3} align="stretch">
                     <HStack justify="space-between">
                       <HStack>
                         <Box w={3} h={3} bg="red.400" rounded="full" />
-                        <Text fontSize="sm">Early: {realtimeStats?.earlyTrips || 0}</Text>
+                        <Text fontSize="md">Early: {realtimeStats?.earlyTrips || 0}</Text>
                       </HStack>
-                      <Text fontSize="xs" color="gray.500">
-                        ({realtimeStats ? getStatusPercentage(realtimeStats.earlyTrips, realtimeStats.totalTrips).toFixed(1) : 0}%)
-                      </Text>
+                      <Text fontSize="sm" color="gray.500">({realtimeStats ? getStatusPercentage(realtimeStats.earlyTrips, realtimeStats.totalTrips).toFixed(1) : 0}%)</Text>
                     </HStack>
-                    
                     <HStack justify="space-between">
                       <HStack>
                         <Box w={3} h={3} bg="green.400" rounded="full" />
-                        <Text fontSize="sm">On-Time: {realtimeStats?.onTimeTrips || 0}</Text>
+                        <Text fontSize="md">On-Time: {realtimeStats?.onTimeTrips || 0}</Text>
                       </HStack>
-                      <Text fontSize="xs" color="gray.500">
-                        ({realtimeStats ? getStatusPercentage(realtimeStats.onTimeTrips, realtimeStats.totalTrips).toFixed(1) : 0}%)
-                      </Text>
+                      <Text fontSize="sm" color="gray.500">({realtimeStats ? getStatusPercentage(realtimeStats.onTimeTrips, realtimeStats.totalTrips).toFixed(1) : 0}%)</Text>
                     </HStack>
-                    
                     <HStack justify="space-between">
                       <HStack>
                         <Box w={3} h={3} bg="yellow.400" rounded="full" />
-                        <Text fontSize="sm">Late: {realtimeStats?.lateTrips || 0}</Text>
+                        <Text fontSize="md">Late: {realtimeStats?.lateTrips || 0}</Text>
                       </HStack>
-                      <Text fontSize="xs" color="gray.500">
-                        ({realtimeStats ? getStatusPercentage(realtimeStats.lateTrips, realtimeStats.totalTrips).toFixed(1) : 0}%)
-                      </Text>
+                      <Text fontSize="sm" color="gray.500">({realtimeStats ? getStatusPercentage(realtimeStats.lateTrips, realtimeStats.totalTrips).toFixed(1) : 0}%)</Text>
                     </HStack>
-                    
                     <HStack justify="space-between">
                       <HStack>
                         <Box w={3} h={3} bg="blue.400" rounded="full" />
-                        <Text fontSize="sm">Layover/Deadhead: {realtimeStats?.layoverTrips || 0}</Text>
+                        <Text fontSize="md">Layover/Deadhead: {realtimeStats?.layoverTrips || 0}</Text>
                       </HStack>
-                      <Text fontSize="xs" color="gray.500">
-                        ({realtimeStats ? getStatusPercentage(realtimeStats.layoverTrips, realtimeStats.totalTrips).toFixed(1) : 0}%)
-                      </Text>
+                      <Text fontSize="sm" color="gray.500">({realtimeStats ? getStatusPercentage(realtimeStats.layoverTrips, realtimeStats.totalTrips).toFixed(1) : 0}%)</Text>
                     </HStack>
-                    
                     <HStack justify="space-between">
                       <HStack>
                         <Box w={3} h={3} bg="gray.400" rounded="full" />
-                        <Text fontSize="sm">Missing: {realtimeStats?.missingTrips || 0}</Text>
+                        <Text fontSize="md">Missing: {realtimeStats?.missingTrips || 0}</Text>
                       </HStack>
-                      <Text fontSize="xs" color="gray.500">
-                        ({realtimeStats ? getStatusPercentage(realtimeStats.missingTrips, realtimeStats.totalTrips).toFixed(1) : 0}%)
-                      </Text>
+                      <Text fontSize="sm" color="gray.500">({realtimeStats ? getStatusPercentage(realtimeStats.missingTrips, realtimeStats.totalTrips).toFixed(1) : 0}%)</Text>
                     </HStack>
                   </VStack>
                 </VStack>
               </CardBody>
             </Card>
-
-            {/* Routes Card */}
-            <Card bg={cardBg} mb={4}>
+            <Card bg={cardBg} mb={6} p={4} borderRadius="xl" boxShadow="md">
               <CardHeader pb={2}>
-                <Text fontWeight="semibold" fontSize="sm">All Routes</Text>
+                <Text fontWeight="semibold" fontSize="md">All Routes</Text>
               </CardHeader>
               <CardBody pt={0}>
-                <VStack spacing={3} align="stretch">
-                  {/* Route Dropdown - Shows ALL scheduled routes */}
-                  <Select
-                    size="sm"
-                    value={selectedRoutes[0] || 'all'}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSelectedRoutes(value === 'all' ? ['all'] : [value]);
-                    }}
-                  >
+                <VStack spacing={4} align="stretch">
+                  <Select size="md" value={selectedRoutes[0] || 'all'} onChange={(e) => { const value = e.target.value; setSelectedRoutes(value === 'all' ? ['all'] : [value]); }}>
                     <option value="all">All Routes</option>
                     {allRoutes.map(route => (
-                      <option key={route.route_id} value={route.route_id}>
-                        Route {route.route_short_name || route.route_id} - {route.route_long_name || 'No name'}
-                      </option>
+                      <option key={route.route_id} value={route.route_id}>Route {route.route_short_name || route.route_id} - {route.route_long_name || 'No name'}</option>
                     ))}
                   </Select>
-
-                  {/* Active Route Status List - Only routes with active vehicles */}
-                  <VStack spacing={1} align="stretch" maxH="200px" overflowY="auto">
-                    <Text fontSize="xs" fontWeight="semibold" color="gray.600" mb={1}>
-                      Currently Active ({availableRoutes.length} routes)
-                    </Text>
-                    {availableRoutes.map(route => {
-                      const routeStats = realtimeStats?.routes[route];
-                      const hasIssues = routeStats && routeStats.issues > 0;
-                      
-                      return (
-                        <HStack
-                          key={route}
-                          p={2}
-                          bg={hasIssues ? 'red.50' : 'transparent'}
-                          rounded="md"
-                          fontSize="sm"
-                          justify="space-between"
-                        >
-                          <HStack>
-                            <Text fontWeight="medium">Route {route}</Text>
-                            {hasIssues && <Icon as={FiAlertTriangle} color="red.500" boxSize={3} />}
-                          </HStack>
-                          <Text color="gray.500" fontSize="xs">
-                            {routeStats?.totalVehicles || 0} vehicles
-                          </Text>
-                        </HStack>
-                      );
-                    })}
-                    {availableRoutes.length === 0 && (
-                      <Text fontSize="sm" color="gray.500" textAlign="center" py={2}>
-                        No active routes
-                      </Text>
-                    )}
+                  <VStack spacing={2} align="stretch" maxH="200px" overflowY="auto">
+                    <Text fontSize="sm" fontWeight="semibold" color="gray.600" mb={1}>Currently Active ({availableRoutes.length} routes)</Text>
+                    {availableRoutes.map(route => { const routeStats = realtimeStats?.routes[route]; const hasIssues = routeStats && routeStats.issues > 0; return (<HStack key={route} p={2} bg={hasIssues ? 'red.50' : 'transparent'} rounded="md" fontSize="md" justify="space-between"><HStack><Text fontWeight="medium">Route {route}</Text>{hasIssues && <Icon as={FiAlertTriangle} color="red.500" boxSize={3} />}</HStack><Text color="gray.500" fontSize="sm">{routeStats?.totalVehicles || 0} vehicles</Text></HStack>); })}
+                    {availableRoutes.length === 0 && (<Text fontSize="md" color="gray.500" textAlign="center" py={2}>No active routes</Text>)}
                   </VStack>
                 </VStack>
               </CardBody>
             </Card>
-
-            {/* Filters */}
-            <Card bg={cardBg}>
+            <Card bg={cardBg} p={4} borderRadius="xl" boxShadow="md">
               <CardHeader pb={2}>
                 <Flex align="center" justify="space-between">
-                  <Text fontWeight="semibold" fontSize="sm">Filters</Text>
-                  <IconButton
-                    aria-label="Toggle filters"
-                    icon={showFilters ? <FiChevronLeft /> : <FiChevronRight />}
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => setShowFilters(!showFilters)}
-                  />
+                  <Text fontWeight="semibold" fontSize="md">Filters</Text>
+                  <IconButton aria-label="Toggle filters" icon={showFilters ? <FiChevronLeft /> : <FiChevronRight />} size="sm" variant="ghost" onClick={() => setShowFilters(!showFilters)} />
                 </Flex>
               </CardHeader>
               <Collapse in={showFilters}>
                 <CardBody pt={0}>
                   <VStack spacing={4} align="stretch">
-                    <FormControl>
-                      <FormLabel fontSize="xs">Search</FormLabel>
-                      <InputGroup size="sm">
-                        <InputLeftElement pointerEvents="none">
-                          <Icon as={FiSearch} color="gray.400" />
-                        </InputLeftElement>
-                        <Input
-                          placeholder="Vehicle, block, stop, operator..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                      </InputGroup>
-                    </FormControl>
-
-                    <FormControl>
-                      <FormLabel fontSize="xs">Display</FormLabel>
-                      <VStack spacing={2} align="stretch">
-                        <HStack justify="space-between">
-                          <Text fontSize="sm">Vehicle label</Text>
-                          <Switch size="sm" />
-                        </HStack>
-                        <HStack justify="space-between">
-                          <Text fontSize="sm">Stops</Text>
-                          <Switch size="sm" isChecked={showStops} onChange={(e) => setShowStops(e.target.checked)} />
-                        </HStack>
-                        <HStack justify="space-between">
-                          <Text fontSize="sm">Unassigned Vehicles</Text>
-                          <Switch size="sm" isChecked={showUnassigned} onChange={(e) => setShowUnassigned(e.target.checked)} />
-                        </HStack>
-                      </VStack>
-                    </FormControl>
+                    {/* Add your filter controls here, e.g. search, switches, etc. */}
                   </VStack>
                 </CardBody>
               </Collapse>
             </Card>
           </Box>
-
-          {/* Main Content - Only Enhanced Map (removed duplicate RealTimeMap) */}
-          <Card bg={cardBg} overflow="hidden">
-            <CardBody p={0} h="full">
-              {viewMode === 'map' && (
-                <EnhancedRealTimeMap vehicles={filteredVehicles} showStops={showStops} />
-              )}
-              {viewMode === 'list' && (
-                <EnhancedActiveTripsTable vehicles={filteredVehicles} />
-              )}
-              {viewMode === 'ladder' && (
-                <EnhancedRouteLadderView 
-                  vehicles={filteredVehicles} 
-                  selectedRoutes={selectedRoutes}
-                />
-              )}
-            </CardBody>
-          </Card>
+          {/* Main Content: Map/List/Ladder Views */}
+          <Box>
+            <Tabs variant="enclosed" colorScheme="blue">
+              <TabList mb={4}>
+                <Tab fontWeight="bold">Map</Tab>
+                <Tab fontWeight="bold">List</Tab>
+                <Tab fontWeight="bold">Ladder</Tab>
+              </TabList>
+              <TabPanels>
+                <TabPanel px={0} py={2}>
+                  <EnhancedRealTimeMap vehicles={filteredVehicles} allRoutes={allRoutes} selectedRouteId={selectedRoutes[0] !== 'all' ? selectedRoutes[0] : undefined} />
+                </TabPanel>
+                <TabPanel px={0} py={2}>
+                  <EnhancedActiveTripsTable vehicles={filteredVehicles} allRoutes={allRoutes} />
+                </TabPanel>
+                <TabPanel px={0} py={2}>
+                  <EnhancedRouteLadderView vehicles={filteredVehicles} allRoutes={allRoutes} selectedRouteId={selectedRoutes[0] !== 'all' ? selectedRoutes[0] : undefined} />
+                </TabPanel>
+              </TabPanels>
+            </Tabs>
+          </Box>
         </Grid>
       )}
     </Box>

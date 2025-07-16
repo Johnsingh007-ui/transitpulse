@@ -223,11 +223,12 @@ const TransitMap: React.FC<TransitMapProps> = ({ selectedRouteId }) => {
           )}
 
           <FormControl display="flex" alignItems="center">
-            <FormLabel htmlFor="auto-refresh" mb="0" fontSize="sm">
+            <FormLabel htmlFor="transitMap-auto-refresh" mb="0" fontSize="sm">
               Auto-refresh
             </FormLabel>
             <Switch
-              id="auto-refresh"
+              id="transitMap-auto-refresh"
+              name="transitMap-auto-refresh"
               isChecked={autoRefresh}
               onChange={(e) => setAutoRefresh(e.target.checked)}
               size="sm"
@@ -236,11 +237,12 @@ const TransitMap: React.FC<TransitMapProps> = ({ selectedRouteId }) => {
 
           {!selectedRouteId && (
             <FormControl display="flex" alignItems="center">
-              <FormLabel htmlFor="show-routes" mb="0" fontSize="sm">
+              <FormLabel htmlFor="transitMap-show-routes" mb="0" fontSize="sm">
                 Show routes
               </FormLabel>
               <Switch
-                id="show-routes"
+                id="transitMap-show-routes"
+                name="transitMap-show-routes"
                 isChecked={showAllRoutes}
                 onChange={(e) => setShowAllRoutes(e.target.checked)}
                 size="sm"
