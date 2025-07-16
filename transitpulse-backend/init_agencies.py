@@ -11,7 +11,7 @@ import os
 # Add the parent directory to sys.path so we can import app modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.core.database import async_engine
+from app.core.database import engine
 from app.models import Base
 from app.models.agency import Agency
 from app.core.config import settings
@@ -22,11 +22,11 @@ async def init_agencies():
     """Initialize agencies in the database"""
     
     # Create all tables if they don't exist
-    async with async_engine.begin() as conn:
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
     # Create async session
-    async with AsyncSession(async_engine) as session:
+    async with AsyncSession(engine) as session:
         try:
             # Check if Golden Gate Transit agency already exists
             result = await session.execute(
@@ -50,6 +50,7 @@ async def init_agencies():
                 logo_url="/logos/ggt-logo.png",
                 gtfs_static_url="https://gtfs.goldengate.org/gtfs/google_transit.zip",
                 gtfs_rt_vehicles_url="https://api.goldengate.org/public/gtfs-rt/vehicles",
+                gtfs_rt_trip_updates_url="https://api.goldengate.org/public/gtfs-rt/trip-updates",
                 config={
                     "update_frequency_minutes": 30,
                     "timezone": "America/Los_Angeles",

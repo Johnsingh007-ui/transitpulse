@@ -6,8 +6,9 @@ from datetime import datetime, timedelta, time
 import logging
 import sys
 import os
-from geopy.distance import geodesic
 import math
+import asyncio
+import pytz
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
@@ -303,10 +304,11 @@ async def get_vehicle_trip_details(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get trip details for a specific vehicle including all stops and real-time updates.
+    Get trip details for a specific vehicle using ONLY real-time data.
+    No GTFS static dependencies - pure real-time trip updates and vehicle positions.
     """
     try:
-        # Get current trip for this vehicle
+        # Get current vehicle position and trip info
         vehicle_query = text("""
             SELECT 
                 lv.trip_id,
@@ -333,22 +335,274 @@ async def get_vehicle_trip_details(
         if not vehicle_info.trip_id:
             raise HTTPException(status_code=404, detail="No active trip for this vehicle")
         
-        # Get trip details using the trip_id
-        trip_details = await get_trip_details_with_updates(vehicle_info.trip_id, db)
+        # Get GTFS static trip and route information for scheduled times
+        trip_info_data = None
+        all_stops = []
+        direction_name = None
         
-        # Add vehicle information - no fallback calculations, real-time data only
-        trip_details["vehicle_info"] = {
-            "vehicle_id": vehicle_info.vehicle_id,
-            "latitude": float(vehicle_info.latitude) if vehicle_info.latitude else None,
-            "longitude": float(vehicle_info.longitude) if vehicle_info.longitude else None,
-            "bearing": vehicle_info.bearing,
-            "speed": vehicle_info.speed,
-            "occupancy_status": vehicle_info.occupancy_status,
-            "direction_name": None,  # Not available in current schema
-            "last_updated": vehicle_info.timestamp.isoformat() if vehicle_info.timestamp else None
+        try:
+            # Get trip details from GTFS static data
+            trip_query = text("""
+                SELECT 
+                    t.trip_id,
+                    t.route_id,
+                    t.trip_headsign,
+                    t.direction_id,
+                    r.route_short_name,
+                    r.route_long_name,
+                    r.route_color,
+                    r.route_text_color
+                FROM gtfs_trips t
+                JOIN gtfs_routes r ON t.route_id = r.route_id
+                WHERE t.trip_id = :trip_id
+            """)
+            
+            result = await db.execute(trip_query, {"trip_id": vehicle_info.trip_id})
+            trip_static_info = result.fetchone()
+            
+            if trip_static_info:
+                trip_info_data = {
+                    "trip_id": trip_static_info.trip_id,
+                    "route_id": trip_static_info.route_id,
+                    "trip_headsign": trip_static_info.trip_headsign,
+                    "direction_id": trip_static_info.direction_id,
+                    "route_short_name": trip_static_info.route_short_name,
+                    "route_long_name": trip_static_info.route_long_name,
+                    "route_color": trip_static_info.route_color or "#0066CC",
+                    "route_text_color": trip_static_info.route_text_color or "#FFFFFF"
+                }
+                
+                # Determine direction name
+                if trip_static_info.direction_id == 0:
+                    direction_name = "Outbound"
+                elif trip_static_info.direction_id == 1:
+                    direction_name = "Inbound"
+                
+                # Get all scheduled stops for this trip
+                stops_query = text("""
+                    SELECT 
+                        st.stop_sequence,
+                        st.stop_id,
+                        st.arrival_time,
+                        st.departure_time,
+                        s.stop_name,
+                        s.stop_lat,
+                        s.stop_lon,
+                        s.stop_code
+                    FROM gtfs_stop_times st
+                    JOIN gtfs_stops s ON st.stop_id = s.stop_id
+                    WHERE st.trip_id = :trip_id
+                    ORDER BY st.stop_sequence
+                """)
+                
+                result = await db.execute(stops_query, {"trip_id": vehicle_info.trip_id})
+                stops_data = result.fetchall()
+                
+                # Convert to list of stop dictionaries
+                for stop in stops_data:
+                    stop_info = {
+                        "stop_sequence": stop.stop_sequence,
+                        "stop_id": stop.stop_id,
+                        "stop_name": stop.stop_name,
+                        "stop_code": stop.stop_code,
+                        "stop_lat": float(stop.stop_lat) if stop.stop_lat else None,
+                        "stop_lon": float(stop.stop_lon) if stop.stop_lon else None,
+                        "scheduled_arrival": stop.arrival_time.strftime('%H:%M:%S') if stop.arrival_time else None,
+                        "scheduled_departure": stop.departure_time.strftime('%H:%M:%S') if stop.departure_time else None,
+                        "predicted_arrival": None,
+                        "predicted_departure": None,
+                        "actual_arrival": None,
+                        "actual_departure": None,
+                        "arrival_delay": None,
+                        "departure_delay": None,
+                        "status": "scheduled"
+                    }
+                    all_stops.append(stop_info)
+                    
+        except Exception as e:
+            logger.warning(f"Could not fetch GTFS static data for trip {vehicle_info.trip_id}: {e}")
+        
+        # Fallback if no static data available
+        if not trip_info_data:
+            trip_info_data = {
+                "trip_id": vehicle_info.trip_id,
+                "route_id": vehicle_info.route_id,
+                "trip_headsign": f"Route {vehicle_info.route_id} - Live Data",
+                "direction_id": None,
+                "route_short_name": vehicle_info.route_id,
+                "route_long_name": f"Route {vehicle_info.route_id}",
+                "route_color": "#0066CC",
+                "route_text_color": "#FFFFFF"
+            }
+        
+        # Get real-time trip updates and merge with scheduled data
+        current_trip_updates = None
+        
+        try:
+            updater = AutoGTFSUpdater()
+            import asyncio
+            trip_updates = await asyncio.wait_for(
+                updater.fetch_trip_updates("golden_gate"), 
+                timeout=5.0
+            )
+            
+            # Find updates for this specific trip
+            if trip_updates:
+                for update in trip_updates:
+                    # Handle different GTFS-RT feed structures
+                    update_trip_id = None
+                    if "trip_id" in update:
+                        update_trip_id = update["trip_id"]
+                    elif "trip" in update:
+                        if isinstance(update["trip"], dict):
+                            update_trip_id = update["trip"].get("trip_id")
+                    
+                    if update_trip_id == vehicle_info.trip_id:
+                        current_trip_updates = update
+                        
+                        # Merge real-time updates with scheduled stops
+                        if "stop_time_updates" in update and all_stops:
+                            current_time = datetime.now()
+                            current_timestamp = current_time.timestamp()
+                            
+                            for stop_update in update["stop_time_updates"]:
+                                # Find the corresponding scheduled stop
+                                for stop_info in all_stops:
+                                    if stop_info["stop_id"] == stop_update["stop_id"]:
+                                        # Add real-time data to the scheduled stop
+                                        stop_info["arrival_delay"] = stop_update.get("arrival_delay")
+                                        stop_info["departure_delay"] = stop_update.get("departure_delay")
+                                        
+                                        # Handle arrival times
+                                        if stop_update.get("arrival_time"):
+                                            arrival_timestamp = stop_update["arrival_time"]
+                                            
+                                            if arrival_timestamp <= current_timestamp:
+                                                stop_info["status"] = "passed"
+                                                # This is actual time for passed stops
+                                                actual_time = convert_gtfs_time_to_datetime(arrival_timestamp, current_time)
+                                                if actual_time:
+                                                    stop_info["actual_arrival"] = actual_time.strftime('%H:%M:%S')
+                                            else:
+                                                stop_info["status"] = "upcoming"
+                                                # This is predicted time for upcoming stops
+                                                pred_time = convert_gtfs_time_to_datetime(arrival_timestamp, current_time)
+                                                if pred_time:
+                                                    stop_info["predicted_arrival"] = pred_time.strftime('%H:%M:%S')
+                                                
+                                                # Add countdown info
+                                                seconds_to_arrival = int(arrival_timestamp - current_timestamp)
+                                                stop_info["seconds_to_arrival"] = seconds_to_arrival
+                                                stop_info["minutes_to_arrival"] = round(seconds_to_arrival / 60, 1)
+                                        
+                                        # Handle departure times
+                                        if stop_update.get("departure_time"):
+                                            departure_timestamp = stop_update["departure_time"]
+                                            
+                                            if departure_timestamp <= current_timestamp:
+                                                # Actual departure time
+                                                actual_time = convert_gtfs_time_to_datetime(departure_timestamp, current_time)
+                                                if actual_time:
+                                                    stop_info["actual_departure"] = actual_time.strftime('%H:%M:%S')
+                                            else:
+                                                # Predicted departure time
+                                                pred_time = convert_gtfs_time_to_datetime(departure_timestamp, current_time)
+                                                if pred_time:
+                                                    stop_info["predicted_departure"] = pred_time.strftime('%H:%M:%S')
+                                        
+                                        break
+                        break
+                        
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning(f"Could not fetch real-time trip updates for vehicle {vehicle_id}: {e}")
+        
+        # If no scheduled stops found, fall back to real-time only data
+        if not all_stops and current_trip_updates and "stop_time_updates" in current_trip_updates:
+            current_time = datetime.now()
+            for stop_update in current_trip_updates["stop_time_updates"]:
+                stop_data = {
+                    "stop_id": stop_update["stop_id"],
+                    "stop_sequence": stop_update.get("stop_sequence"),
+                    "stop_name": f"Stop {stop_update['stop_id']}",  # Fallback name
+                    "stop_code": stop_update["stop_id"],
+                    "stop_lat": None,
+                    "stop_lon": None,
+                    "scheduled_arrival": None,
+                    "scheduled_departure": None,
+                    "arrival_delay": stop_update.get("arrival_delay"),
+                    "departure_delay": stop_update.get("departure_delay"),
+                    "predicted_arrival": None,
+                    "predicted_departure": None,
+                    "actual_arrival": None,
+                    "actual_departure": None,
+                    "status": "unknown"
+                }
+                
+                # Convert GTFS-RT timestamps to readable times
+                if stop_update.get("arrival_time"):
+                    arrival_timestamp = stop_update["arrival_time"]
+                    current_timestamp = current_time.timestamp()
+                    
+                    if arrival_timestamp <= current_timestamp:
+                        stop_data["status"] = "passed"
+                        actual_time = convert_gtfs_time_to_datetime(arrival_timestamp, current_time)
+                        if actual_time:
+                            stop_data["actual_arrival"] = actual_time.strftime('%H:%M:%S')
+                    else:
+                        stop_data["status"] = "upcoming"
+                        pred_time = convert_gtfs_time_to_datetime(arrival_timestamp, current_time)
+                        if pred_time:
+                            stop_data["predicted_arrival"] = pred_time.strftime('%H:%M:%S')
+                        
+                        seconds_to_arrival = int(arrival_timestamp - current_timestamp)
+                        stop_data["seconds_to_arrival"] = seconds_to_arrival
+                        stop_data["minutes_to_arrival"] = round(seconds_to_arrival / 60, 1)
+                
+                if stop_update.get("departure_time"):
+                    departure_timestamp = stop_update["departure_time"]
+                    pred_time = convert_gtfs_time_to_datetime(departure_timestamp, current_time)
+                    if pred_time:
+                        if departure_timestamp <= current_time.timestamp():
+                            stop_data["actual_departure"] = pred_time.strftime('%H:%M:%S')
+                        else:
+                            stop_data["predicted_departure"] = pred_time.strftime('%H:%M:%S')
+                
+                all_stops.append(stop_data)
+        
+        # Build comprehensive response with scheduled + real-time data
+        return {
+            "trip_id": vehicle_info.trip_id,
+            "route_id": vehicle_info.route_id,
+            "trip_headsign": trip_info_data["trip_headsign"],
+            "direction_id": trip_info_data["direction_id"],
+            "trip_info": trip_info_data,
+            "route_info": {
+                "route_short_name": trip_info_data["route_short_name"],
+                "route_long_name": trip_info_data["route_long_name"],
+                "route_color": trip_info_data["route_color"], 
+                "route_text_color": trip_info_data["route_text_color"]
+            },
+            "stops": all_stops,
+            "current_stop_sequence": None,  # Could be determined from vehicle position
+            "real_time_updates": current_trip_updates,
+            "vehicle_info": {
+                "vehicle_id": vehicle_info.vehicle_id,
+                "latitude": float(vehicle_info.latitude) if vehicle_info.latitude else None,
+                "longitude": float(vehicle_info.longitude) if vehicle_info.longitude else None,
+                "bearing": vehicle_info.bearing,
+                "speed": vehicle_info.speed,
+                "occupancy_status": vehicle_info.occupancy_status,
+                "direction_name": direction_name,
+                "last_updated": vehicle_info.timestamp.isoformat() if vehicle_info.timestamp else None
+            },
+            "status": "scheduled_with_realtime" if all_stops else "real_time_only",
+            "message": f"Trip {vehicle_info.trip_id} for vehicle {vehicle_id} on route {vehicle_info.route_id}",
+            "data_source": "gtfs_static_and_rt" if all_stops else "gtfs_rt_only",
+            "total_stops": len(all_stops),
+            "has_real_time_predictions": current_trip_updates is not None,
+            "has_scheduled_data": len(all_stops) > 0,
+            "last_updated": datetime.now().isoformat()
         }
-        
-        return trip_details
         
     except HTTPException:
         raise

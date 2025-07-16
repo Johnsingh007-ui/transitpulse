@@ -5,6 +5,7 @@ from app.models.agency import *
 from app.models.gtfs_static import *
 from app.models.vehicle import *
 from app.models.kpi import *
+from app.models.predictions import *
 
 # This ensures that all models are imported and their metadata is available for table creation
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     'GTFSStopTime',
     'GTFSCalendar',
     'GTFSCalendarDate',
-    'LiveVehiclePosition'
+    'LiveVehiclePosition',
+    'StopPrediction'
 ]

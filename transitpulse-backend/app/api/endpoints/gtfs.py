@@ -488,21 +488,59 @@ async def get_realtime_vehicles(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get real-time vehicle positions from live feeds with direction information.
+    Get real-time vehicle positions from live database with direction information.
     
-    Returns current vehicle positions updated from real transit agency APIs,
+    Returns current vehicle positions that are actively on the road right now,
     enhanced with direction_id and headsign information from GTFS data.
     """
     try:
-        vehicles = await auto_updater.get_current_vehicles(agency, route_id)
+        # Query live vehicles from database (only recent positions)
+        from sqlalchemy import text
         
-        # Enhance vehicles with direction information by looking up trip data
+        query = text("""
+            SELECT 
+                lv.vehicle_id,
+                lv.trip_id,
+                lv.route_id,
+                lv.latitude,
+                lv.longitude,
+                lv.bearing,
+                lv.speed,
+                lv.current_status,
+                lv.occupancy_status,
+                lv.timestamp,
+                EXTRACT(EPOCH FROM (NOW() - lv.timestamp))/60 AS minutes_ago
+            FROM live_vehicle_positions lv
+            WHERE lv.timestamp > NOW() - INTERVAL '15 minutes'
+            {}
+            ORDER BY lv.timestamp DESC
+        """.format(
+            "AND lv.route_id = :route_id" if route_id else ""
+        ))
+        
+        params = {"route_id": route_id} if route_id else {}
+        result = await db.execute(query, params)
+        vehicles_data = result.fetchall()
+        
+        # Convert to list of dictionaries and enhance with trip info
         enhanced_vehicles = []
-        for vehicle in vehicles:
-            enhanced_vehicle = dict(vehicle)
+        for vehicle_row in vehicles_data:
+            vehicle = {
+                'vehicle_id': vehicle_row.vehicle_id,
+                'trip_id': vehicle_row.trip_id,
+                'route_id': vehicle_row.route_id,
+                'latitude': float(vehicle_row.latitude) if vehicle_row.latitude else None,
+                'longitude': float(vehicle_row.longitude) if vehicle_row.longitude else None,
+                'bearing': vehicle_row.bearing,
+                'speed': vehicle_row.speed,
+                'current_status': vehicle_row.current_status,
+                'occupancy_status': vehicle_row.occupancy_status,
+                'timestamp': vehicle_row.timestamp.isoformat() if vehicle_row.timestamp else None,
+                'minutes_ago': round(vehicle_row.minutes_ago, 1) if vehicle_row.minutes_ago else None
+            }
             
             # Look up trip information to get direction_id and headsign
-            if vehicle.get('trip_id'):
+            if vehicle['trip_id']:
                 try:
                     trip_result = await db.execute(
                         select(GTFSTrip.direction_id, GTFSTrip.trip_headsign)
@@ -511,24 +549,31 @@ async def get_realtime_vehicles(
                     trip_data = trip_result.fetchone()
                     
                     if trip_data:
-                        enhanced_vehicle['direction_id'] = trip_data.direction_id
-                        enhanced_vehicle['direction_name'] = "Outbound" if trip_data.direction_id == 0 else "Inbound"
-                        enhanced_vehicle['headsign'] = trip_data.trip_headsign
+                        vehicle['direction_id'] = trip_data.direction_id
+                        vehicle['direction_name'] = "Outbound" if trip_data.direction_id == 0 else "Inbound"
+                        vehicle['headsign'] = trip_data.trip_headsign
                     else:
-                        enhanced_vehicle['direction_id'] = None
-                        enhanced_vehicle['direction_name'] = None
-                        enhanced_vehicle['headsign'] = None
+                        vehicle['direction_id'] = None
+                        vehicle['direction_name'] = None
+                        vehicle['headsign'] = None
                 except Exception as e:
-                    logger.warning(f"Could not fetch trip data for trip_id {vehicle.get('trip_id')}: {e}")
-                    enhanced_vehicle['direction_id'] = None
-                    enhanced_vehicle['direction_name'] = None
-                    enhanced_vehicle['headsign'] = None
+                    logger.warning(f"Could not fetch trip data for trip_id {vehicle['trip_id']}: {e}")
+                    vehicle['direction_id'] = None
+                    vehicle['direction_name'] = None
+                    vehicle['headsign'] = None
             else:
-                enhanced_vehicle['direction_id'] = None
-                enhanced_vehicle['direction_name'] = None
-                enhanced_vehicle['headsign'] = None
+                vehicle['direction_id'] = None
+                vehicle['direction_name'] = None
+                vehicle['headsign'] = None
             
-            enhanced_vehicles.append(enhanced_vehicle)
+            enhanced_vehicles.append(vehicle)
+        
+        logger.info(f"Returning {len(enhanced_vehicles)} live vehicles (within last 15 minutes)")
+        return enhanced_vehicles
+        
+    except Exception as e:
+        logger.error(f"Error fetching real-time vehicles: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
         
         return {
             "status": "success",

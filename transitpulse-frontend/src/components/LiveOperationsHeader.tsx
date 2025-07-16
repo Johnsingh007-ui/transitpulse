@@ -18,25 +18,29 @@ import {
   FiTruck,
   FiActivity
 } from 'react-icons/fi';
-import { motion } from 'framer-motion';
-
-const MotionBox = motion(Box);
+// Removed motion import to fix deprecation warning
 
 interface LiveOperationsHeaderProps {
-  isConnected: boolean;
-  lastUpdated: Date;
-  totalTrips: number;
-  onTimePercentage: number;
+  selectedAgency: string;
+  onAgencyChange: (agency: string) => void;
+  selectedRoute: string | null;
+  onRouteChange: (route: string | null) => void;
 }
 
 const LiveOperationsHeader: React.FC<LiveOperationsHeaderProps> = ({
-  isConnected,
-  lastUpdated,
-  totalTrips,
-  onTimePercentage
+  selectedAgency,
+  onAgencyChange,
+  selectedRoute,
+  onRouteChange
 }) => {
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
+  
+  // Mock data for now - these could be fetched from API
+  const totalTrips = 156;
+  const onTimePercentage = 87.3;
+  const lastUpdated = new Date();
+  const isConnected = true; // Default to connected for now
   
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', {
@@ -53,16 +57,13 @@ const LiveOperationsHeader: React.FC<LiveOperationsHeaderProps> = ({
   };
 
   return (
-    <MotionBox
+    <Box
       bg={bgColor}
       borderBottom="1px"
       borderColor={borderColor}
       py={4}
       px={6}
       shadow="sm"
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
     >
       <Container maxW="7xl">
         <Flex justify="space-between" align="center">
@@ -149,17 +150,7 @@ const LiveOperationsHeader: React.FC<LiveOperationsHeaderProps> = ({
             </HStack>
 
             {/* Live Badge */}
-            <MotionBox
-              animate={{
-                scale: [1, 1.05, 1],
-                opacity: [1, 0.8, 1]
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            >
+            <Box>
               <Badge
                 colorScheme={isConnected ? 'green' : 'red'}
                 variant="solid"
@@ -172,11 +163,11 @@ const LiveOperationsHeader: React.FC<LiveOperationsHeaderProps> = ({
               >
                 ● {isConnected ? 'Real-Time' : 'Disconnected'}
               </Badge>
-            </MotionBox>
+            </Box>
           </HStack>
         </Flex>
       </Container>
-    </MotionBox>
+    </Box>
   );
 };
 

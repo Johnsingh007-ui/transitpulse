@@ -37,6 +37,7 @@ async def get_realtime_vehicles(
     """
     try:
         # Base query for vehicle positions with route information - only vehicles with route assignments
+        # and that are currently active (within last 15 minutes)
         query = text("""
             SELECT DISTINCT
                 lv.vehicle_id,
@@ -63,6 +64,7 @@ async def get_realtime_vehicles(
             AND lv.longitude IS NOT NULL
             AND lv.route_id IS NOT NULL 
             AND lv.route_id != ''
+            AND lv.timestamp > NOW() - INTERVAL '15 minutes'
         """)
         
         # Add route filter if specified

@@ -37,11 +37,27 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # --- Configuration ---
-FIVE_ELEVEN_API_KEY = "b43cedb9-b614-4739-bb3a-e3c07f895fab"  # 511 API Key
+# Golden Gate Transit direct GTFS-RT API (no API key needed)
 GGT_AGENCY_ID = "GG"  # Golden Gate Transit Agency ID
 
-# Using 511 MTC URL for real-time vehicle positions
-GTFS_RT_VEHICLE_POSITIONS_URL = "http://api.511.org/Transit/VehiclePositions"
+# Using Golden Gate Transit's official GTFS-RT feed
+GTFS_RT_VEHICLE_POSITIONS_URL = "https://api.goldengate.org/public/gtfs-rt/vehicles"
+
+class GTFSRTProcessor:
+    """
+    Handles real-time GTFS-RT data processing for vehicle positions.
+    """
+    
+    def __init__(self):
+        """Initialize the GTFS-RT processor."""
+        self.logger = logging.getLogger(__name__)
+    
+    async def fetch_and_store_vehicle_positions(self):
+        """
+        Fetches and stores vehicle positions from the real-time feed.
+        This is the method called by the scheduler.
+        """
+        return await fetch_and_process_gtfs_rt_data()
 
 # --- Database Connection Test Function ---
 async def test_database_connection(db_url: str) -> bool:
@@ -60,20 +76,18 @@ async def test_database_connection(db_url: str) -> bool:
         return False
 
 # --- GTFS-RT Processing Function ---
-async def fetch_and_process_gtfs_rt_data(agency_id: str, api_key: str):
+async def fetch_and_process_gtfs_rt_data():
     """
-    Fetches GTFS-Realtime Vehicle Positions, parses them, and updates the database.
+    Fetches GTFS-Realtime Vehicle Positions from Golden Gate Transit, parses them, and updates the database.
     """
-    params = {"api_key": api_key, "agency": agency_id}
     headers = {"Accept": "application/x-google-protobuf"}
 
-    logger.info(f"Fetching real-time vehicle positions for {agency_id} from {GTFS_RT_VEHICLE_POSITIONS_URL}...")
+    logger.info(f"Fetching real-time vehicle positions from Golden Gate Transit: {GTFS_RT_VEHICLE_POSITIONS_URL}...")
 
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
                 GTFS_RT_VEHICLE_POSITIONS_URL, 
-                params=params, 
                 headers=headers, 
                 timeout=20.0,
                 follow_redirects=True
@@ -147,21 +161,21 @@ async def fetch_and_process_gtfs_rt_data(agency_id: str, api_key: str):
                             updated_count += 1
 
                 await db.commit()
-                logger.info(f"Processed GTFS-RT for {agency_id}: {updated_count} vehicles updated, {new_count} new vehicles added.")
+                logger.info(f"Processed GTFS-RT for Golden Gate Transit: {updated_count} vehicles updated, {new_count} new vehicles added.")
                 return True
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error fetching GTFS-RT for {agency_id}: {e.response.status_code} - {e.response.text}")
+            logger.error(f"HTTP error fetching GTFS-RT for Golden Gate Transit: {e.response.status_code} - {e.response.text}")
             if e.response.status_code == 401:
                 logger.error("Authentication Error: Invalid API Key for GTFS-RT. Please check your API key.")
             elif e.response.status_code == 404:
-                logger.error(f"Not Found: Agency ID '{agency_id}' might be incorrect or GTFS-RT not available.")
+                logger.error(f"Not Found: Golden Gate Transit GTFS-RT feed might not be available.")
             return False
         except httpx.RequestError as e:
-            logger.error(f"Network error fetching GTFS-RT for {agency_id}: {e}")
+            logger.error(f"Network error fetching GTFS-RT for Golden Gate Transit: {e}")
             return False
         except Exception as e:
-            logger.error(f"An unexpected error occurred during GTFS-RT processing for {agency_id}: {e}")
+            logger.error(f"An unexpected error occurred during GTFS-RT processing for Golden Gate Transit: {e}")
             import traceback
             logger.error(traceback.format_exc())
             return False
@@ -178,7 +192,7 @@ async def main_loop():
 
     while True:
         start_time = datetime.utcnow()
-        success = await fetch_and_process_gtfs_rt_data(GGT_AGENCY_ID, FIVE_ELEVEN_API_KEY)
+        success = await fetch_and_process_gtfs_rt_data()
 
         processing_time = (datetime.utcnow() - start_time).total_seconds()
         sleep_time = max(0, FETCH_INTERVAL_SECONDS - processing_time)

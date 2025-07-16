@@ -11,6 +11,7 @@ from typing import Dict, Any
 import logging
 from data_ingestion.auto_gtfs_updater import AutoGTFSUpdater
 from data_ingestion.gtfs_rt_processor import GTFSRTProcessor
+from data_ingestion.gtfs_trip_updates_processor import GTFSTripUpdatesProcessor
 
 # Configure logging
 logging.basicConfig(
@@ -29,6 +30,7 @@ class TransitPulseScheduler:
     def __init__(self):
         self.gtfs_updater = AutoGTFSUpdater()
         self.rt_processor = GTFSRTProcessor()
+        self.trip_updates_processor = GTFSTripUpdatesProcessor()
         self.is_running = False
         
     async def update_static_data_job(self):
@@ -52,6 +54,14 @@ class TransitPulseScheduler:
         except Exception as e:
             logger.error(f"❌ Error updating real-time vehicles: {e}")
     
+    async def update_trip_updates_job(self):
+        """Real-time trip updates job (every 60 seconds)."""
+        try:
+            await self.trip_updates_processor.fetch_and_store_trip_updates()
+            logger.debug("🕐 Real-time trip updates processed")
+        except Exception as e:
+            logger.error(f"❌ Error updating trip updates: {e}")
+    
     def setup_schedule(self):
         """Setup the automated schedule."""
         # Daily GTFS static update at 3:00 AM
@@ -60,9 +70,13 @@ class TransitPulseScheduler:
         # Real-time vehicle updates every 30 seconds
         schedule.every(30).seconds.do(self.run_async_job, self.update_realtime_vehicles_job)
         
+        # Real-time trip updates every 60 seconds
+        schedule.every(60).seconds.do(self.run_async_job, self.update_trip_updates_job)
+        
         logger.info("📅 Scheduled jobs:")
         logger.info("  • GTFS Static Data: Daily at 3:00 AM")
         logger.info("  • Real-time Vehicles: Every 30 seconds")
+        logger.info("  • Real-time Trip Updates: Every 60 seconds")
     
     def run_async_job(self, job_func):
         """Run an async job in the event loop."""

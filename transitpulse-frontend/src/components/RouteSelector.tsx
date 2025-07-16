@@ -13,9 +13,7 @@ import {
   Tooltip
 } from '@chakra-ui/react';
 import { FiMap, FiTruck, FiActivity } from 'react-icons/fi';
-import { motion } from 'framer-motion';
-
-const MotionButton = motion(Button);
+// Removed framer-motion to fix deprecation warnings
 
 interface RouteData {
   route_id: string;
@@ -27,18 +25,25 @@ interface RouteData {
 }
 
 interface RouteSelectorProps {
-  routes: RouteData[];
-  selectedRoute: string;
-  onRouteChange: (routeId: string) => void;
+  selectedRoute: string | null;
+  onRouteChange: (routeId: string | null) => void;
+  selectedAgency: string;
 }
 
 const RouteSelector: React.FC<RouteSelectorProps> = ({
-  routes,
   selectedRoute,
-  onRouteChange
+  onRouteChange,
+  selectedAgency
 }) => {
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
+
+  // Mock routes data for now
+  const routes: RouteData[] = [
+    { route_id: '101', route_short_name: '101', route_long_name: 'San Rafael Transit Center - Larkspur Landing', active_trips: 12, on_time_percentage: 89, average_delay: 3 },
+    { route_id: '4', route_short_name: '4', route_long_name: 'San Francisco - Sausalito', active_trips: 8, on_time_percentage: 92, average_delay: 1 },
+    { route_id: '10', route_short_name: '10', route_long_name: 'San Rafael - Novato', active_trips: 6, on_time_percentage: 85, average_delay: 4 }
+  ];
 
   const getPerformanceColor = (percentage: number) => {
     if (percentage >= 90) return 'green';
@@ -63,14 +68,19 @@ const RouteSelector: React.FC<RouteSelectorProps> = ({
 
         <Flex wrap="wrap" gap={3}>
           {/* All Routes Button */}
-          <MotionButton
+          <Button
             size="md"
             variant={selectedRoute === 'all' ? 'solid' : 'outline'}
             colorScheme="blue"
             onClick={() => onRouteChange('all')}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
             leftIcon={<FiTruck />}
+            _hover={{
+              transform: 'scale(1.02)',
+            }}
+            _active={{
+              transform: 'scale(0.98)',
+            }}
+            transition="all 0.2s"
           >
             <Box textAlign="left">
               <Text fontWeight="bold">All Routes</Text>
@@ -78,7 +88,7 @@ const RouteSelector: React.FC<RouteSelectorProps> = ({
                 {routes.reduce((sum, route) => sum + route.active_trips, 0)} buses
               </Text>
             </Box>
-          </MotionButton>
+          </Button>
 
           {/* Individual Route Buttons */}
           {routes.map((route) => (
@@ -87,15 +97,20 @@ const RouteSelector: React.FC<RouteSelectorProps> = ({
               label={`${route.route_long_name} - ${route.active_trips} active buses`}
               placement="top"
             >
-              <MotionButton
+              <Button
                 size="md"
                 variant={selectedRoute === route.route_id ? 'solid' : 'outline'}
                 colorScheme={getPerformanceColor(route.on_time_percentage)}
                 onClick={() => onRouteChange(route.route_id)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
                 position="relative"
                 overflow="hidden"
+                _hover={{
+                  transform: 'scale(1.02)',
+                }}
+                _active={{
+                  transform: 'scale(0.98)',
+                }}
+                transition="all 0.2s"
               >
                 <Box textAlign="left">
                   <HStack spacing={2}>
@@ -132,7 +147,7 @@ const RouteSelector: React.FC<RouteSelectorProps> = ({
                   bg={`${getPerformanceColor(route.on_time_percentage)}.400`}
                   transition="width 0.3s ease"
                 />
-              </MotionButton>
+              </Button>
             </Tooltip>
           ))}
         </Flex>

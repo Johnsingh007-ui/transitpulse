@@ -23,10 +23,11 @@ from app.schemas.gtfs_static import (
 # Operator IDs for Golden Gate Transit and Ferry
 GGT_OPERATOR_ID = "GG"  # Golden Gate Transit (bus) operator ID
 GGF_OPERATOR_ID = "GF"  # Golden Gate Ferry operator ID
-FIVE_ELEVEN_API_KEY = "b43cedb9-b614-4739-bb3a-e3c07f895fab"  # 511 API key
+# Golden Gate Transit GTFS Static data URL
+GTFS_STATIC_URL = "https://gtfs.goldengate.org/gtfs/google_transit.zip"
 
-# URL for 511 MTC GTFS DataFeed Download API (for a specific operator_id)
-GTFS_DATA_URL_TEMPLATE = "http://api.511.org/transit/datafeeds?api_key={api_key}&operator_id={operator_id}"
+# URL for Golden Gate Transit GTFS Static data download
+GTFS_DATA_URL = GTFS_STATIC_URL
 
 def parse_gtfs_time(time_str: str) -> Optional[time]:
     """
@@ -144,12 +145,12 @@ async def _load_csv_to_db(
         print(f"Error processing {csv_filename}: {e}")
 
 
-async def load_gtfs_static_data(operator_id: str, api_key: str):
+async def load_gtfs_static_data():
     """
-    Downloads GTFS static data for a given operator, parses it, and loads it into the database.
+    Downloads GTFS static data from Golden Gate Transit, parses it, and loads it into the database.
     """
-    url = GTFS_DATA_URL_TEMPLATE.format(api_key=api_key, operator_id=operator_id)
-    print(f"Attempting to download GTFS data for {operator_id} from {url}")
+    url = GTFS_DATA_URL
+    print(f"Attempting to download GTFS data from {url}")
 
     async with httpx.AsyncClient() as client:
         try:
@@ -164,12 +165,12 @@ async def load_gtfs_static_data(operator_id: str, api_key: str):
                 if response.status_code == 401:
                     print("Authentication Error: Invalid API Key. Please check your API key.")
                 elif response.status_code == 404:
-                    print(f"Not Found: Operator ID '{operator_id}' might be incorrect or data not available.")
+                    print(f"Not Found: Operator ID 'Golden Gate Transit' might be incorrect or data not available.")
                 return False  # Indicate failure
 
             zip_file_bytes = io.BytesIO(response.content)
             with zipfile.ZipFile(zip_file_bytes, 'r') as zf:
-                print(f"Successfully downloaded and opened GTFS zip for {operator_id}.")
+                print(f"Successfully downloaded and opened GTFS zip for Golden Gate Transit.")
 
                 async with SessionLocal() as db:
                     # Order of loading matters due to foreign key relationships in real GTFS data
@@ -187,23 +188,23 @@ async def load_gtfs_static_data(operator_id: str, api_key: str):
                         print("calendar_dates.txt not found in zip, skipping.")
 
                     await db.commit()
-                    print(f"GTFS static data for {operator_id} loaded successfully.")
+                    print(f"GTFS static data for 'Golden Gate Transit' loaded successfully.")
                     return True
         except httpx.HTTPStatusError as e:
-            print(f"HTTP error occurred during download for {operator_id}: {e.response.status_code} - {e.response.text}")
+            print(f"HTTP error occurred during download for 'Golden Gate Transit': {e.response.status_code} - {e.response.text}")
             if e.response.status_code == 401:
                 print("Authentication Error: Invalid API Key. Please check your API key.")
             elif e.response.status_code == 404:
-                print(f"Not Found: Operator ID '{operator_id}' might be incorrect or data not available.")
+                print(f"Not Found: Operator ID 'Golden Gate Transit' might be incorrect or data not available.")
             return False
         except httpx.RequestError as e:
-            print(f"Network error during download for {operator_id}: {e}")
+            print(f"Network error during download for 'Golden Gate Transit': {e}")
             return False
         except zipfile.BadZipFile as e:
-            print(f"Downloaded file is not a valid ZIP archive for {operator_id}: {e}")
+            print(f"Downloaded file is not a valid ZIP archive for 'Golden Gate Transit': {e}")
             return False
         except Exception as e:
-            print(f"An unexpected error occurred while loading GTFS data for {operator_id}: {e}")
+            print(f"An unexpected error occurred while loading GTFS data for 'Golden Gate Transit': {e}")
             return False
 
 if __name__ == "__main__":
@@ -211,7 +212,7 @@ if __name__ == "__main__":
     print("Starting GTFS static data loading process...")
     
     # Load Golden Gate Transit (Bus) data
-    success_ggt = asyncio.run(load_gtfs_static_data(GGT_OPERATOR_ID, FIVE_ELEVEN_API_KEY))
+    success_ggt = asyncio.run(load_gtfs_static_data())
     if success_ggt:
         print(f"Successfully loaded static GTFS for {GGT_OPERATOR_ID}.")
     else:

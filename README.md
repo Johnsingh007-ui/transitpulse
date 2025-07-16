@@ -6,16 +6,29 @@
 
 ## 🚀 Quick Start
 
+**One-Command Launch:**
 ```bash
 git clone https://github.com/Johnsingh007-ui/transitpulse.git
 cd transitpulse
-./start_transitpulse_production.sh
+./launch.sh
 ```
+
+The universal launcher will:
+- ✅ Start PostgreSQL database (Docker)
+- ✅ Install Python and Node.js dependencies
+- ✅ Initialize database with proper timing
+- ✅ Launch backend API server
+- ✅ Start frontend development server
+- ✅ Verify all services are running
 
 **Access Points:**
 - 🌐 **Frontend**: http://localhost:3002
 - 🔧 **Backend API**: http://localhost:9002
 - 📚 **API Docs**: http://localhost:9002/docs
+
+**Alternative Scripts:**
+- `./dev_start.sh` - Quick development start
+- `./setup_and_start.sh` - Full setup with database initialization
 
 ## ✨ Key Features
 
@@ -158,6 +171,28 @@ transitpulse/
 3. **Trip Updates Processing** - Predictions and delays
 4. **Timezone Conversion** - UTC to Pacific Time
 5. **Frontend Display** - Real-time countdowns and status
+
+## 🛠️ Troubleshooting
+
+**Common Issues:**
+
+1. **Port conflicts**: If ports 3002 or 9002 are busy, stop other services first
+2. **Database connection**: Wait for Docker container to fully start (may take 30+ seconds)
+3. **Dependencies missing**: Run `./fix_requirements.sh` if packages are missing
+4. **Permission denied**: Make scripts executable with `chmod +x *.sh`
+
+**Service Status Check:**
+```bash
+./status.sh                    # Check all services
+docker ps                     # Check database container
+curl http://localhost:9002/health  # Test backend
+```
+
+**Clean restart:**
+```bash
+docker-compose down           # Stop database
+./launch.sh                   # Fresh start
+```
 
 ## 🎨 Color Coding System
 
